@@ -1,0 +1,7 @@
+# Tested on Spark with CPython 3.11.15. These direct dependencies reproduce the
+# deterministic mechanism suite and paper-analysis environment.
+PyYAML==6.0.1
+cryptography==41.0.7
+numpy==2.4.6
+pandas==3.0.3
+pytest==9.1.1

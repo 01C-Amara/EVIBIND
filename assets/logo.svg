@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="140" viewBox="0 0 520 140">
+  <!-- EviBind mark: an evidence card bound to an action slot by a sealed link.
+       The left card (evidence) carries derivation lines; the right slot receives
+       only the bound value; the bind stroke carries the seal dot. -->
+  <defs>
+    <linearGradient id="bindstroke" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2a78d6"/>
+      <stop offset="1" stop-color="#1baf7a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- evidence card -->
+  <rect x="18" y="30" width="56" height="80" rx="12" fill="none" stroke="#2a78d6" stroke-width="7"/>
+  <line x1="32" y1="52" x2="60" y2="52" stroke="#2a78d6" stroke-width="7" stroke-linecap="round"/>
+  <line x1="32" y1="70" x2="52" y2="70" stroke="#86b6ef" stroke-width="7" stroke-linecap="round"/>
+  <line x1="32" y1="88" x2="60" y2="88" stroke="#86b6ef" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- bind stroke with seal -->
+  <path d="M 74 70 C 96 70, 96 70, 118 70" fill="none" stroke="url(#bindstroke)" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="96" cy="70" r="12" fill="#fcfcfb" stroke="#1baf7a" stroke-width="6"/>
+  <circle cx="96" cy="70" r="3.5" fill="#1baf7a"/>
+
+  <!-- action slot -->
+  <rect x="118" y="42" width="56" height="56" rx="12" fill="none" stroke="#1baf7a" stroke-width="7"/>
+  <line x1="134" y1="70" x2="158" y2="70" stroke="#1baf7a" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- wordmark -->
+  <text x="200" y="86" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
+        font-size="52" fill="#0b0b0b" letter-spacing="-1">Evi<tspan font-weight="700" fill="#2a78d6">Bind</tspan></text>
+  <text x="202" y="112" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
+        font-size="15" fill="#52514e" letter-spacing="0.4">evidence-bound tool calls</text>
+</svg>

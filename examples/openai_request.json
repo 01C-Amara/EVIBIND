@@ -1,0 +1,39 @@
+{
+  "model": "your-upstream-model",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Create a calendar event on 2026-08-02."
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "create_calendar_event",
+        "description": "Create a calendar event.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "x-evibind-slot-role": "control",
+              "x-evibind-evidence-type": "iso_date",
+              "x-evibind-sources": ["user.current_turn"],
+              "x-evibind-resolution-type": "normalizable",
+              "x-evibind-extraction-cue": "date"
+            }
+          },
+          "required": [
+            "date"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "evibind": {
+    "policy_epoch": "2026-07",
+    "include_diagnostics": false
+  }
+}

@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use EviBind or BoundaryBench, cite this software release and the accompanying paper."
+title: "EviBind: Evidence-Bound Argument Materialization"
+type: software
+authors:
+  - name: "EviBind contributors"
+version: 0.4.0.dev0
+date-released: 2026-08-17
+license: MIT
+abstract: >-
+  EviBind binds action-critical tool arguments to authenticated, replayable
+  evidence derivations and materializes executable values in trusted code.
+keywords:
+  - tool calling
+  - language-model agents
+  - provenance
+  - capability security
+  - reproducibility

@@ -1,0 +1,196 @@
+schema_version: tapbench.portable_model_catalog.v1
+teacher_models:
+  - key: gpt_oss_120b_teacher
+    id: GPT-OSS-120B
+    role: request_paraphrase_teacher_only
+    exclude_from_evaluation: true
+    contamination_note: Used only for request authoring and paraphrase generation; never scored as an evaluated model.
+evaluated_models:
+  - key: qwen36_35b_a3b
+    id: Qwen/Qwen3.6-35B-A3B
+    role: large_model_scale_reference
+    tokenizer_family: qwen
+    parameters: 35B_total_3B_active
+    backend_defaults:
+      main_backend: llama.cpp
+      quantization: MXFP4_MOE
+      model_artifact: qwen3-35b/Qwen3.6-35B-A3B-MXFP4_MOE.gguf
+      chat_template: qwen3
+      grammar_engine: gbnf
+    exclude_from_main_coefficients: true
+    include_in_powered_scale_coefficients: true
+    diagnostic_note: Evaluated as a within-model scale reference on the frozen R2-F cases and external anchors.
+  - key: gpt_oss_120b_reference
+    id: openai/gpt-oss-120b
+    role: external_large_model_reference_and_synthetic_diagnostic
+    tokenizer_family: gpt_oss
+    parameters: 120B_total_sparse
+    backend_defaults:
+      main_backend: llama.cpp
+      quantization: MXFP4
+      model_artifact: gpt-oss-120b/openai_gpt-oss-120b-MXFP4.gguf
+      chat_template: gpt_oss
+      grammar_engine: gbnf
+    exclude_from_main_coefficients: true
+    include_in_powered_scale_coefficients: true
+    contamination_note: >-
+      The same model family previously served as request-authoring teacher.
+      Synthetic results are diagnostic only; untouched external benchmarks are
+      the primary evaluation surface.
+  - key: qwen3_1_7b
+    id: Qwen/Qwen3-1.7B
+    role: small_general_primary
+    tokenizer_family: qwen
+    parameters: 1.7B
+    backend_defaults:
+      main_backend: llama.cpp
+      diagnostic_backend: hf_xgrammar
+      quantization: Q4_K_M
+      model_artifact: Qwen3-1.7B-Q4_K_M.gguf
+      chat_template: qwen3
+      grammar_engine: gbnf
+    include_in_main_coefficients: true
+  - key: qwen3_0_6b
+    id: Qwen/Qwen3-0.6B
+    role: ultra_small_sanity_fallback
+    tokenizer_family: qwen
+    parameters: 0.6B
+    backend_defaults:
+      main_backend: llama.cpp
+      diagnostic_backend: hf_xgrammar
+      quantization: Q4_K_M
+      model_artifact: Qwen3-0.6B-Q4_K_M.gguf
+      chat_template: qwen3
+      grammar_engine: gbnf
+    exclude_from_main_coefficients: true
+    fallback_condition: Use only if the Qwen/Qwen3-1.7B slot misses the pilot runtime cap.
+  - key: liquid_lfm25_8b_a1b
+    id: LiquidAI/LFM2.5-8B-A1B
+    role: efficient_moe_hybrid
+    tokenizer_family: liquid
+    parameters: 8.3B_total_1.5B_active
+    backend_defaults:
+      main_backend: llama.cpp
+      diagnostic_backend: hf_xgrammar
+      quantization: Q4_K_M
+      model_artifact: LFM2.5-8B-A1B-Q4_K_M.gguf
+      chat_template: liquid_lfm25
+      grammar_engine: gbnf
+    include_in_main_coefficients: true
+  - key: liquid_lfm25_1_2b_instruct
+    id: LiquidAI/LFM2.5-1.2B-Instruct
+    role: liquid_runtime_fallback
+    tokenizer_family: liquid
+    parameters: 1.2B
+    backend_defaults:
+      main_backend: llama.cpp
+      diagnostic_backend: hf_xgrammar
+      quantization: Q4_K_M
+      model_artifact: LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+      chat_template: liquid_lfm25
+      grammar_engine: gbnf
+    exclude_from_main_coefficients: true
+    fallback_condition: Use only if LiquidAI/LFM2.5-8B-A1B exceeds the pilot runtime cap.
+  - key: gemma4_e2b_it
+    id: google/gemma-4-E2B-it
+    role: gemma_light_general
+    tokenizer_family: gemma
+    parameters: E2B
+    backend_defaults:
+      main_backend: llama.cpp
+      diagnostic_backend: hf_xgrammar
+      quantization: Q4_K_M
+      model_artifact: gemma-4-E2B-it-Q4_K_M.gguf
+      chat_template: gemma4
+      grammar_engine: gbnf
+    include_in_main_coefficients: true
+  - key: gemma4_e4b_it
+    id: google/gemma-4-E4B-it
+    role: gemma_light_general
+    tokenizer_family: gemma
+    parameters: E4B
+    backend_defaults:
+      main_backend: llama.cpp
+      diagnostic_backend: hf_xgrammar
+      quantization: Q4_K_M
+      model_artifact: gemma-4-E4B-it-Q4_K_M.gguf
+      chat_template: gemma4
+      grammar_engine: gbnf
+    include_in_main_coefficients: true
+  - key: gemma4_12b_it_qat_local
+    id: google/gemma-4-12B-it
+    role: local_gemma_availability_substitute
+    tokenizer_family: gemma
+    parameters: 12B
+    backend_defaults:
+      main_backend: llama.cpp
+      diagnostic_backend: hf_xgrammar
+      quantization: UD-Q4_K_XL
+      model_artifact: gemma-4-12b/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+      chat_template: gemma4
+      grammar_engine: llama_chat_json_object_ctx8192
+    exclude_from_main_coefficients: true
+    local_substitute_for:
+      - google/gemma-4-E2B-it
+      - google/gemma-4-E4B-it
+    availability_note: Exact E2B/E4B local GGUF artifacts were not present; this local 12B QAT artifact is used only for explicit pilot comparisons.
+  - key: xlam2_1b_fc_r
+    id: Salesforce/xLAM-2-1b-fc-r
+    role: specialist_function_calling
+    tokenizer_family: xlam
+    parameters: 1B
+    backend_defaults:
+      main_backend: hf_native
+      diagnostic_backend: hf_native
+      quantization: bf16
+      model_artifact: Salesforce/xLAM-2-1b-fc-r
+      chat_template: xlam_native
+      grammar_engine: native_parser
+    specialist_native_format: true
+    exclude_from_main_coefficients: true
+  - key: xlam2_3b_fc_r
+    id: Salesforce/xLAM-2-3b-fc-r
+    role: specialist_function_calling
+    tokenizer_family: xlam
+    parameters: 3B
+    backend_defaults:
+      main_backend: hf_native
+      diagnostic_backend: hf_native
+      quantization: bf16
+      model_artifact: Salesforce/xLAM-2-3b-fc-r
+      chat_template: xlam_native
+      grammar_engine: native_parser
+    specialist_native_format: true
+    exclude_from_main_coefficients: true
+model_groups:
+  main_core:
+    - qwen3_1_7b
+    - liquid_lfm25_8b_a1b
+    - gemma4_e2b_it
+    - gemma4_e4b_it
+  evibench_powered_scale:
+    - qwen3_1_7b
+    - liquid_lfm25_8b_a1b
+    - gemma4_e2b_it
+    - gemma4_e4b_it
+    - qwen36_35b_a3b
+    - gpt_oss_120b_reference
+  diagnostics_hf:
+    - qwen3_1_7b
+    - liquid_lfm25_8b_a1b
+    - gemma4_e2b_it
+    - gemma4_e4b_it
+    - qwen3_0_6b
+    - liquid_lfm25_1_2b_instruct
+  h5_hf_contrast:
+    - qwen3_1_7b
+    - gemma4_e2b_it
+    - liquid_lfm25_8b_a1b
+    - xlam2_1b_fc_r
+    - xlam2_3b_fc_r
+tokenizer_diversity_requirement:
+  main_core_min_families: 2
+  observed_main_core_families:
+    - qwen
+    - liquid
+    - gemma

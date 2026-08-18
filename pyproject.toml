@@ -1,0 +1,85 @@
+[project]
+name = "evibind"
+version = "0.4.0.dev0"
+description = "Evidence-gated tool calling for OpenAI-compatible LLM APIs."
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["llm", "tool-calling", "function-calling", "verification", "gateway"]
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML>=6.0",
+  "cryptography>=41.0",
+]
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "numpy>=2.0", "pytest>=8", "ruff>=0.12"]
+analysis = ["numpy>=2.0", "pandas>=2.0"]
+rewardbench = ["pyarrow>=15"]
+retrieval = [
+  "numpy>=2.0",
+  "sentence-transformers>=5.6",
+]
+
+[project.scripts]
+tapbench = "tapbench.cli:main"
+evibind = "evibind.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["evibind", "tapbench"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/.dockerignore",
+  "/.env.example",
+  "/.github",
+  "/analysis",
+  "/configs",
+  "/docs",
+  "/evibind",
+  "/examples",
+  "/paper",
+  "/scripts",
+  "/tapbench",
+  "/tests",
+  "/CHANGELOG.md",
+  "/CITATION.cff",
+  "/CONTRIBUTING.md",
+  "/Dockerfile",
+  "/LICENSE",
+  "/README.md",
+  "/requirements",
+  "/SECURITY.md",
+  "/pyproject.toml",
+]
+exclude = [
+  "/**/__pycache__",
+  "/**/*.pyc",
+  "/paper/*.aux",
+  "/paper/*.bbl",
+  "/paper/*.blg",
+  "/paper/*.fdb_latexmk",
+  "/paper/*.fls",
+  "/paper/*.log",
+  "/paper/*.out",
+  "/paper/*.pdf",
+  "/configs/massive_agents_capc_development_amendment_v2.yaml",
+  "/configs/mdeberta_qa_verifier_artifact.sha256",
+  "/configs/mdeberta_qa_verifier_manifest.yaml",
+  "/configs/model_pins.yaml",
+  "/configs/confirmatory_luna_credential_amendment_v2.json",
+  "/configs/confirmatory_model_extension_preregistration_v1.json",
+  "/docs/EVIBENCH_SESSION_HANDOFF.md",
+  "/scripts/*.sh",
+  "/scripts/audit_external_validation.py",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

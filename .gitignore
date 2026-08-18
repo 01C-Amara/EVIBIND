@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+dist/
+build/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+_stale/
+_to_delete/
+bench/results/chunk*.json
+bench/results/haiku_raw.jsonl

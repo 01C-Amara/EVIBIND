@@ -1,0 +1,99 @@
+schema_version: tapbench.hypothesis_map.v1
+registered_at: 2026-07-08
+notes:
+  - No H1-H6 coefficient may mix backend, quantization, chat template, grammar engine, or specialist output format.
+  - Scoring happens only on normalized Action IR.
+  - External anchors are validity checks only unless converted into predeclared backend-consistent subsets.
+hypotheses:
+  H1:
+    grid_id: H1_prompt_verbosity
+    estimand: prompt_verbosity_effect_on_execution_success
+    primary_metric: execution_success
+    family: binomial
+    glmm_formula: execution_success ~ prompt_condition + (1 | family) + (1 | model_id)
+    primary_contrast: prompt_strict_json_vs_prompt_verbose
+    backend: llama.cpp
+    quantization: Q4_K_M
+    eligible_methods:
+      - prompt_minimal
+      - prompt_strict_json
+      - prompt_few_shot
+      - prompt_verbose
+      - prompt_self_check
+  H2:
+    grid_id: H2_constraints_repair
+    estimand: constrained_decoding_and_repair_effect_on_format_validity_vs_semantics
+    primary_metric: execution_success
+    secondary_metrics:
+      - format_valid
+      - schema_valid
+      - args_exact
+    family: binomial
+    glmm_formula: execution_success ~ method * d * q + (1 | family) + (1 | model_id)
+    primary_contrast: constrained_abstain_b2_vs_prompt_strict_json
+    backend: llama.cpp
+    quantization: Q4_K_M
+    repair_budget: 2
+  H3:
+    grid_id: H3_schema_alpha
+    estimand: schema_representation_sensitivity
+    primary_metric: execution_success
+    secondary_metrics:
+      - args_exact
+      - schema_valid
+    family: binomial
+    glmm_formula: execution_success ~ method * alpha + (1 | family) + (1 | model_id)
+    primary_contrast: fragmented_vs_aligned_under_constrained_abstain_b2
+    backend: llama.cpp
+    quantization: Q4_K_M
+    alpha_proxy: tokenizer_fragmentation_stats
+  H4:
+    grid_id: H4_legal_token_mass
+    estimand: action_manifold_probability_mass
+    primary_metric: legal_token_mass
+    secondary_metrics:
+      - mask_entropy
+      - rerouted_mass
+    family: gaussian
+    glmm_formula: legal_token_mass ~ alpha * sigma + (1 | family) + (1 | model_id)
+    primary_contrast: fragmented_high_sigma_vs_aligned_low_sigma
+    backend: hf_xgrammar
+    quantization: bf16
+    diagnostic_only: true
+  H5:
+    grid_id: H5_specialist_gap
+    estimand: tap_vs_specialist_gap_after_native_format_normalization
+    primary_metric: execution_success
+    secondary_metrics:
+      - args_exact
+      - format_valid
+    family: binomial
+    glmm_formula: execution_success ~ method * model_role * alpha * sigma + (1 | family) + (1 | model_id)
+    primary_contrast: full_tap_b2_general_vs_native_specialist
+    backend: hf_only
+    quantization: bf16
+    specialist_format_rule: native_prompt_and_parser_then_action_ir
+  H6:
+    grid_id: H6_abstention_suppression
+    estimand: abstention_aware_decoding_reduces_fabrication
+    primary_metric: fabrication
+    secondary_metrics:
+      - mode_correct
+      - execution_success
+    family: binomial
+    glmm_formula: fabrication ~ method * task_kind + (1 | family) + (1 | model_id)
+    primary_contrast: constrained_abstain_b2_vs_constrained_call_only_b2
+    backend: llama.cpp
+    quantization: Q4_K_M
+    repair_budget: 2
+retrieval:
+  grid_id: R1_retrieval_ablation_N64
+  estimand: retrieval_effect_at_identified_N64_cells
+  primary_metric: execution_success
+  retrieval_metrics:
+    - recall_at_8
+    - retriever_latency_ms
+  family: binomial
+  glmm_formula: execution_success ~ retriever * sigma + (1 | family) + (1 | model_id)
+  backend: llama.cpp
+  quantization: Q4_K_M

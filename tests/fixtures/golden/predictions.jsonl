@@ -1,0 +1,1 @@
+{"backend":"llama.cpp","case_id":"gold_call_calendar_000","chat_template":"qwen3","grammar_engine":"gbnf","method":"tap_b2","model_artifact":"Qwen3-1.7B-Q4_K_M.gguf","model_id":"Qwen/Qwen3-1.7B","prediction":{"arguments":{"date":"2026-07-09","start_time":"09:00","title":"Team sync 0"},"mode":"call","payload":{},"tool":"create_calendar_event"},"quantization":"Q4_K_M","seed":1}

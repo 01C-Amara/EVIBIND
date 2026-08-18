@@ -1,0 +1,430 @@
+schema_version: tapbench.hypothesis_subgrids.v1
+hypothesis_subgrids_version: 2026-07-08.revised_fractional.v1
+full_grid_rejected:
+  call_cell_count_formula: 3 x 3 x 3 x 3 x 2 x 2
+  call_cells_per_family: 324
+  families: 8
+  instances_per_cell: 5
+  call_cases: 12960
+  methods: 10
+  models: 8
+  seeds: 3
+  implied_generations: 3110400
+  decision: rejected_as_infeasible_on_single_gb10_class_box
+common_defaults:
+  N: 16
+  q: 3
+  d: 1
+  e: 6
+  sigma: low
+  alpha: aligned
+  families:
+    - calendar
+    - email
+    - weather
+    - shopping
+    - file_search
+    - database
+    - support
+    - travel
+  repair_budget: 2
+  retriever_k: 8
+pilot:
+  repair_budget: 2
+  required_outputs:
+    - configs/hypothesis_subgrids.yaml
+    - work/pilot/runtime_projection.yaml
+  full_run_gate:
+    require_runtime_projection: true
+    require_pilot_completed: true
+  runtime_statistics:
+    - p50_seconds
+    - p95_seconds
+    - tokens_per_second
+  pilot_fraction: 0.2
+  min_cases_per_grid: 24
+full_run_generation_cap:
+  target_min: 35000
+  target_max: 45000
+backend_rules:
+  no_mixed_backend_coefficients: true
+  main_accuracy_backend: llama.cpp
+  main_quantization: Q4_K_M
+  hf_xgrammar_scope:
+    - H4_legal_token_mass
+    - H5_specialist_gap
+    - diagnostics
+  required_row_fields:
+    - backend
+    - model_artifact
+    - quantization
+    - chat_template
+    - grammar_engine
+    - scorer_version
+subgrids:
+  - id: H1_prompt_verbosity
+    hypothesis: H1
+    title: Prompt verbosity
+    case_count: 160
+    pilot_case_count: 32
+    task_kinds:
+      - call
+    focal_factors:
+      prompt_condition:
+        - minimal
+        - strict_json
+        - few_shot
+        - verbose
+        - self_check
+    pinned_factors:
+      N: 16
+      q: 3
+      d: 1
+      e: 6
+      sigma: low
+      alpha: aligned
+    methods:
+      - prompt_minimal
+      - prompt_strict_json
+      - prompt_few_shot
+      - prompt_verbose
+      - prompt_self_check
+    model_group: main_core
+    backend_namespace: llama_cpp_quantized
+    quantization: Q4_K_M
+    planned_generation_budget: 3200
+    coefficient_backend: llama.cpp
+  - id: H2_constraints_repair
+    hypothesis: H2
+    title: Constraints repair format not semantics
+    case_count: 576
+    pilot_case_count: 72
+    task_kinds:
+      - call
+    focal_factors:
+      d:
+        - 1
+        - 2
+        - 3
+      q:
+        - 1
+        - 3
+        - 5
+    pinned_factors:
+      N: 16
+      e: 6
+      sigma: low
+      alpha: aligned
+    methods:
+      - prompt_strict_json
+      - json_mode
+      - constrained_call_only_b2
+      - constrained_abstain_b2
+    model_group: main_core
+    backend_namespace: llama_cpp_quantized
+    quantization: Q4_K_M
+    repair_budget: 2
+    planned_generation_budget: 9216
+    coefficient_backend: llama.cpp
+  - id: H3_schema_alpha
+    hypothesis: H3
+    title: Schema representation sensitivity
+    case_count: 320
+    pilot_case_count: 48
+    task_kinds:
+      - call
+    focal_factors:
+      alpha:
+        - aligned
+        - fragmented
+    pinned_factors:
+      N: 16
+      q: 3
+      d: 1
+      e: 6
+      sigma: low
+    methods:
+      - prompt_strict_json
+      - constrained_call_only_b2
+      - constrained_abstain_b2
+    model_group: main_core
+    backend_namespace: llama_cpp_quantized
+    quantization: Q4_K_M
+    repair_budget: 2
+    alpha_proxy: tokenizer_fragmentation_predeclared
+    planned_generation_budget: 3840
+    coefficient_backend: llama.cpp
+  - id: H4_legal_token_mass
+    hypothesis: H4
+    title: Action-manifold probability mass
+    case_count: 320
+    pilot_case_count: 40
+    task_kinds:
+      - call
+    focal_factors:
+      alpha:
+        - aligned
+        - fragmented
+      sigma:
+        - low
+        - high
+    pinned_factors:
+      N: 16
+      q: 3
+      d: 1
+      e: 6
+    methods:
+      - hf_xgrammar_diagnostic
+    model_group: diagnostics_hf
+    backend_namespace: hf_xgrammar_diagnostic
+    quantization: bf16
+    planned_generation_budget: 1920
+    coefficient_backend: hf_xgrammar
+    diagnostic_metrics:
+      - mask_entropy
+      - rerouted_mass
+      - legal_token_mass
+  - id: H5_specialist_gap
+    hypothesis: H5
+    title: TAP narrows specialist gap
+    case_count: 320
+    pilot_case_count: 48
+    task_kinds:
+      - call
+    focal_factors:
+      alpha:
+        - aligned
+        - fragmented
+      sigma:
+        - low
+        - high
+    pinned_factors:
+      N: 16
+      q: 3
+      d: 1
+      e: 6
+    methods:
+      - full_tap_b2
+      - best_of_n_budget_matched
+      - native_specialist
+    model_group: h5_hf_contrast
+    backend_namespace: hf_native_or_hf_xgrammar_single_coefficient
+    quantization: bf16
+    repair_budget: 2
+    planned_generation_budget: 4800
+    coefficient_backend: hf_only
+    format_rule: Specialist predictions are parsed in native format and normalized into Action IR before scoring.
+  - id: H6_abstention_suppression
+    hypothesis: H6
+    title: Abstention suppresses fabrication
+    case_count: 480
+    pilot_case_count: 72
+    task_kinds:
+      - missing_info
+      - no_tool
+      - direct_answer
+    focal_factors:
+      task_kind:
+        - missing_info
+        - no_tool
+        - direct_answer
+    pinned_factors:
+      N: 16
+      q: 3
+      d: 1
+      e: 6
+      sigma: low
+      alpha: aligned
+    methods:
+      - prompt_strict_json
+      - json_mode
+      - constrained_call_only_b2
+      - constrained_abstain_b2
+    model_group: main_core
+    backend_namespace: llama_cpp_quantized
+    quantization: Q4_K_M
+    repair_budget: 2
+    planned_generation_budget: 7680
+    coefficient_backend: llama.cpp
+  - id: R1_typed_resolution
+    hypothesis: R1
+    title: Iterative typed contract resolution at matched compute
+    case_count: 256
+    pilot_case_count: 64
+    balanced_family_factor_design: true
+    task_kinds:
+      - call
+      - missing_info
+      - no_tool
+      - direct_answer
+    focal_factors:
+      task_kind:
+        - call
+        - missing_info
+        - no_tool
+        - direct_answer
+    pinned_factors:
+      N: 16
+      q: 3
+      d: 1
+      e: 6
+      sigma: low
+      alpha: aligned
+    methods:
+      - prompt_few_shot
+      - best_of_n_budget_matched
+      - constrained_call_only_b2
+      - constrained_abstain_b2
+      - full_tap_b2
+      - tap_r_no_calibrator
+      - tap_r_three_way
+    model_group: main_core
+    backend_namespace: llama_cpp_quantized_r1
+    quantization: Q4_K_M
+    repair_budget: 2
+    planned_generation_budget: 14336
+    exclude_from_full_run_cap: true
+    coefficient_backend: llama.cpp
+    exclusion_note: R1 is a staged successor experiment and is not pooled into the H1-H6 synthetic GLMM.
+  - id: R2A_component_evaluation
+    hypothesis: R2A
+    title: Typed evidence component identification
+    case_count: 512
+    pilot_case_count: 128
+    balanced_family_factor_design: true
+    task_kinds:
+      - call
+    focal_factors:
+      operator_stratum:
+        - normalization
+        - negation
+        - state
+        - default
+        - unit
+        - list
+        - derivation
+        - same_type_role_counterfactual
+    pinned_factors:
+      N: 4
+      q: 1
+      d: 1
+      e: 1
+      sigma: high
+      alpha: aligned
+      repair_budget: 2
+    methods:
+      - r2_literal_generation
+      - r2_pointer_unrestricted
+      - r2_pointer_tep_tier_ab
+    model_group: main_core
+    backend_namespace: llama_cpp_q4km_r2a
+    quantization: Q4_K_M
+    repair_budget: 2
+    planned_generation_budget: 18432
+    exclude_from_full_run_cap: true
+    coefficient_backend: llama.cpp
+    exclusion_note: R2-A is a paired component experiment and is not pooled into H1-H6 or the R1 mechanism run.
+  - id: R1_retrieval_ablation_N64
+    hypothesis: retrieval
+    title: Retrieval ablation identified only at N=64
+    case_count: 320
+    pilot_case_count: 48
+    task_kinds:
+      - call
+    focal_factors:
+      sigma:
+        - low
+        - high
+      retriever:
+        - none
+        - tfidf_char
+        - cheap_embedding
+    pinned_factors:
+      N: 64
+      q: 3
+      d: 1
+      e: 6
+      alpha: aligned
+    methods:
+      - tap_no_retrieval
+      - tap_tfidf_char
+      - tap_embedding
+    model_group: main_core
+    backend_namespace: llama_cpp_quantized
+    quantization: Q4_K_M
+    retrieval_identification_note: Claims are only reported at N=64; k=8 is a no-op at N=4 and most low-sigma N=16 cells.
+    planned_generation_budget: 3840
+    coefficient_backend: llama.cpp
+  - id: BFCL_v4_external_anchor
+    hypothesis: external_bfcl
+    title: BFCL v4 external validity anchor
+    case_count: 640
+    pilot_case_count: 200
+    task_kinds:
+      - call
+      - no_tool
+    focal_factors:
+      bfcl_category:
+        - irrelevance
+        - simple_python
+    pinned_factors:
+      external_source: BFCL_v4
+    methods:
+      - prompt_few_shot
+      - full_tap_b2
+    model_group: main_core
+    backend_namespace: llama_cpp_quantized_external_anchor
+    quantization: Q4_K_M
+    planned_generation_budget: 5120
+    coefficient_backend: external_anchor_only
+    exclusion_note: External BFCL anchor is reported separately and does not enter H1-H6 synthetic GLMM coefficients.
+  - id: BFCL_v4_committee_prospective
+    hypothesis: external_bfcl_committee
+    title: BFCL v4 prospective agreement-committee validation
+    case_count: 1292
+    pilot_case_count: 1292
+    task_kinds:
+      - call
+      - no_tool
+    focal_factors:
+      bfcl_category:
+        - simple_java
+        - simple_javascript
+        - live_simple
+        - live_irrelevance
+    pinned_factors:
+      external_source: BFCL_v4_f7cf735
+      committee_vote_threshold: 6_of_8
+    methods:
+      - prompt_few_shot
+      - full_tap_b2
+    model_group: main_core
+    backend_namespace: llama_cpp_quantized_external_anchor
+    quantization: Q4_K_M
+    planned_generation_budget: 10336
+    exclude_from_full_run_cap: true
+    external_validation_budget: 10336
+    coefficient_backend: external_anchor_only
+    exclusion_note: Prospective external validation only; never enters H1-H11 coefficients.
+retrieval:
+  measured_per_cell: true
+  low_sigma_aligned_gate:
+    recall_at_8_min: 0.98
+  high_sigma_outcome_only: true
+  arms:
+    - none
+    - tfidf_char
+    - cheap_embedding
+alpha_operationalization:
+  primary_proxy: tokenizer_fragmentation_stats
+  fixed_before_full_run: true
+  tokenizer_families:
+    - qwen
+    - liquid
+    - gemma
+  secondary_descriptive_proxy: reference_model_logprob_on_schema_names
+calibration:
+  primary_threshold: global_95_precision
+  appendix_thresholds:
+    - per_model_95_precision
+    - risk_coverage_curves
