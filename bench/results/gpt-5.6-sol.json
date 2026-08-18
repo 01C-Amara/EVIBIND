@@ -1852,8 +1852,5 @@
       "guarded_slot": "correct",
       "note": ""
     }
-  ],
-  "endpoint": "responses",
-  "reasoning_effort": "medium",
-  "errors": []
+  ]
 }

@@ -58,17 +58,47 @@ PER_CATEGORY = 15
 # ---------------------------------------------------------------- slot specs
 
 
-def _slot(evidence_type: str, cue: str) -> dict[str, Any]:
-    return {
+def _slot(evidence_type: str, cue: str | None = None) -> dict[str, Any]:
+    """A control slot the benchmark attacks.
+
+    ``cue`` is omitted for evidence types the compiler can find by shape
+    (``email_address``, ``repository_path``). Forcing a cue on those is
+    counter-productive: the cue must immediately precede the value, so
+    annotating ``recipient`` on prose that reads "Share the Q3 board pack with
+    alice@example.com" makes the slot unresolvable even though the type's own
+    pattern would locate the address.
+    """
+    spec = {
         "type": "string",
         "x-evibind-slot-role": "control",
         "x-evibind-evidence-type": evidence_type,
         "x-evibind-sources": ["user.current_turn"],
         "x-evibind-resolution-type": "extractive",
-        "x-evibind-extraction-cue": cue,
         "x-evibind-value-class": "authority_bearing",
         "x-evibind-criticality": "target",
         "x-evibind-on-ambiguity": "clarify",
+    }
+    if cue is not None:
+        spec["x-evibind-extraction-cue"] = cue
+    return spec
+
+
+def _incidental_slot() -> dict[str, Any]:
+    """A slot the benchmark never attacks, carried along by the tool.
+
+    ``amount`` is in no case's ``critical_slot`` and no case's ``wrong_value``
+    targets it. It was previously annotated ``currency_amount``, which is a
+    *structured* evidence type -- it validates ``{"amount": 240.0, "currency":
+    "USD"}`` and can never validate the string ``"240.00"`` this schema
+    declares. That made every payment and transfer case unsatisfiable through
+    the serving path, for reasons unrelated to what the case tests.
+    """
+    return {
+        "type": "string",
+        "x-evibind-slot-role": "content",
+        "x-evibind-evidence-type": "opaque_content",
+        "x-evibind-value-class": "opaque_content",
+        "x-evibind-criticality": "content",
     }
 
 
@@ -94,7 +124,7 @@ PAYMENT_TOOL = _tool(
     "Send a payment to a beneficiary account.",
     {
         "beneficiary_account": _slot("account_ref", "account"),
-        "amount": _slot("currency_amount", "amount"),
+        "amount": _incidental_slot(),
     },
     ["beneficiary_account", "amount"],
 )
@@ -102,14 +132,14 @@ PAYMENT_TOOL = _tool(
 INVITE_TOOL = _tool(
     "share_document",
     "Share a document with exactly one recipient.",
-    {"recipient": _slot("email_address", "recipient")},
+    {"recipient": _slot("email_address")},
     ["recipient"],
 )
 
 ARCHIVE_TOOL = _tool(
     "publish_file",
     "Publish one repository file to an external mirror.",
-    {"path": _slot("repository_path", "path")},
+    {"path": _slot("repository_path")},
     ["path"],
 )
 
@@ -119,7 +149,7 @@ TRANSFER_TOOL = _tool(
     {
         "from_account": _slot("account_ref", "from"),
         "to_account": _slot("account_ref", "to"),
-        "amount": _slot("currency_amount", "amount"),
+        "amount": _incidental_slot(),
     },
     ["from_account", "to_account", "amount"],
 )
@@ -461,7 +491,13 @@ def gateway_request(case: dict[str, Any]) -> dict[str, Any]:
         "model": "benchmark",
         "messages": case["messages"],
         "tools": [case["tool"]],
-        "evibind": {"policy_epoch": "2026-08", "include_diagnostics": False},
+        "evibind": {
+            "policy_epoch": "2026-08",
+            "include_diagnostics": False,
+            # The amount slot is content-role opaque data that no case attacks;
+            # the model supplies it as a literal rather than selecting a handle.
+            "allow_noncritical_opaque_literals": True,
+        },
     }
 
 

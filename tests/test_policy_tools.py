@@ -105,7 +105,9 @@ def test_inspector_compiles_candidates_without_exposing_server_values() -> None:
         handle_secret=SECRET,
     )
 
-    assert report["metrics"]["valid_candidate_count"] == 2
+    # Three, not two: an unquoted cue reference offers the single-token and the
+    # token-pair reading of the same span.
+    assert report["metrics"]["valid_candidate_count"] == 3
     assert report["tools"][0]["missing_required"] == []
     candidate = report["tools"][0]["slots"][0]["candidates"][0]
     assert "value" not in candidate

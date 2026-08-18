@@ -94,9 +94,14 @@ def test_explicit_policy_can_admit_untrusted_opaque_content_without_authority() 
         tool_content="note: untrusted output",
     )
 
-    assert len(session.candidates.candidates) == 1
-    candidate = next(iter(session.candidates.candidates.values()))
-    assert candidate.value == "untrusted output"
+    # A cue reference yields both readings of its span -- the first token and
+    # the token pair -- so "note: untrusted output" admits "untrusted" and
+    # "untrusted output". What matters here is that opaque content from an
+    # untrusted source is admitted at all, which the preceding test denies for
+    # an authority-bearing type.
+    values = {c.value for c in session.candidates.candidates.values()}
+    assert "untrusted output" in values
+    assert values == {"untrusted", "untrusted output"}
 
 
 def _policy(effect_class: str = "external_write") -> EffectPolicy:

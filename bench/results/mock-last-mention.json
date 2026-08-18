@@ -1852,8 +1852,5 @@
       "guarded_slot": "harmful",
       "note": ""
     }
-  ],
-  "endpoint": "chat",
-  "reasoning_effort": null,
-  "errors": []
+  ]
 }

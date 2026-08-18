@@ -32,15 +32,34 @@ All notable EviBind changes are documented here.
   Verified live: 150/150 cases served end to end against `gpt-5.4-nano`.
 - Added `bench/run_gateway_e2e.py` and `examples/live_gateway_demo.py`, which
   exercise `evibind serve` itself rather than the offline binding path.
-- **Found: cue-based extraction over-captures by one token**, offering
-  `"ACC-4000 -"` and `"I have"` where `"ACC-4000"` was meant, and appending the
-  next word to long ARNs. Confinement holds — nothing untrusted is released —
-  but the correct value is never offered cleanly, so the serving path completes
-  0/150 intended calls where the offline arm completes 120/150. Pinned by
-  `tests/test_extraction_overcapture.py`, written up in `docs/FINDINGS.md` §10.
-  The fix changes evidence admissibility and is left to a deliberate decision.
-- Measured gateway overhead: `+0.31s` median against `gpt-5.4-nano`
-  (0.67s direct, 0.98s guarded), one round trip, no second model call.
+- **Fixed: cue-based extraction offered only the greedy reading of a span**,
+  so `"...account ACC-4000 - that is..."` proposed `"ACC-4000 -"` and `"I have"`
+  but never `"ACC-4000"`. Junk candidates made the slot look ambiguous, an
+  ambiguous required slot was reported as a missing destination, and a missing
+  destination removed the `call` branch from the action schema — leaving every
+  model, from nano to Sol, with `need_input` as its only legal answer. Both
+  readings are now offered narrowest first, a greedy reading whose trailing
+  token has no alphanumeric character is dropped, the narrow reading strips
+  sentence punctuation, and the cue must be a whole word (`account` no longer
+  matched inside `accounts`, offering the leftover `"s"`).
+- **Fixed: `account_ref`, `order_ref`, `event_ref` and `opaque_registry_id`
+  validated with `nonempty_string`**, so any phrase was an admissible
+  identifier. They now require a single identifier token carrying at least one
+  digit or separator — which admits `ACC-4000`, an IBAN, `/safe/report-000` and
+  an ARN, and rejects `I`, `the`, `I have` and `ACC-4000 -`. This narrows
+  admissibility only: a value that fails is withheld, never substituted.
+  `person_ref` is deliberately unchanged, because names are multi-word.
+- Corrected two `bench/cases.py` annotation errors the end-to-end run exposed:
+  `amount` was typed `currency_amount`, a *structured* type that validates
+  `{"amount": 240.0, "currency": "USD"}` and can never validate the string the
+  schema declares; and `recipient`/`path` carried extraction cues absent from
+  their own prose, though their evidence types have shape patterns that locate
+  the value without one.
+- End-to-end result: GPT-5.4 nano through `evibind serve` against live OpenAI
+  goes from 0/150 correct, 15 malformed to **86/150 correct, 0 harmful, 0
+  malformed**. All four origin-violation families complete.
+- Measured gateway overhead: `+0.25s` median against `gpt-5.4-nano`
+  (0.69s direct, 0.94s guarded), one round trip, no second model call.
 - Fixed `pytest tests -q`, the command CI runs: sixteen test modules import the
   paper's `scripts` package, which this repo does not ship, so collection failed
   outright. `tests/conftest.py` now skips them when `scripts` is absent.

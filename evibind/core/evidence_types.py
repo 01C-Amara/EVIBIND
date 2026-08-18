@@ -80,6 +80,36 @@ class EvidenceTypeRegistry:
         def nonempty_string(value: Any) -> bool:
             return isinstance(value, str) and bool(value.strip())
 
+        def reference_identifier(value: Any) -> bool:
+            """An opaque reference is one identifier token, not a phrase.
+
+            ``account_ref`` and friends are deliberately format-agnostic — an
+            account reference may be ``ACC-4000``, an IBAN, or a bare number,
+            and the registry should not assume which. But *any* string was too
+            weak: extractive resolution offers the words following an
+            extraction cue, so ``"the account I have verified"`` admitted
+            ``"I have"`` as an account reference, and an over-captured span
+            admitted ``"ACC-4000 -"``. Junk candidates then make a slot look
+            ambiguous, and an ambiguous required slot removes the call branch
+            from the action schema entirely.
+
+            The rule keeps every realistic identifier — it must be a single
+            token drawn from identifier characters, carrying at least one digit
+            or separator — and rejects prose. ``person_ref`` is deliberately
+            excluded: people have multi-word names.
+            """
+            if not isinstance(value, str):
+                return False
+            token = value.strip()
+            if not token or re.search(r"\s", token):
+                return False
+            if not re.fullmatch(r"[A-Za-z0-9._:@/+-]+", token):
+                return False
+            if not any(character.isalnum() for character in token):
+                return False  # pure punctuation is not a reference
+            return any(character.isdigit() or character in "._:@/+-"
+                       for character in token)
+
         def uuid_value(value: Any) -> bool:
             if not isinstance(value, str):
                 return False
@@ -203,12 +233,12 @@ class EvidenceTypeRegistry:
                 EvidenceType("boolean", boolean_value),
                 EvidenceType(
                     "order_ref",
-                    nonempty_string,
+                    reference_identifier,
                     allowed_root_kinds=reference_roots,
                 ),
                 EvidenceType(
                     "event_ref",
-                    nonempty_string,
+                    reference_identifier,
                     allowed_root_kinds=reference_roots,
                 ),
                 EvidenceType(
@@ -218,7 +248,7 @@ class EvidenceTypeRegistry:
                 ),
                 EvidenceType(
                     "account_ref",
-                    nonempty_string,
+                    reference_identifier,
                     allowed_root_kinds=reference_roots,
                 ),
                 EvidenceType(
@@ -228,7 +258,7 @@ class EvidenceTypeRegistry:
                 ),
                 EvidenceType(
                     "opaque_registry_id",
-                    nonempty_string,
+                    reference_identifier,
                     allowed_root_kinds=reference_roots,
                 ),
                 EvidenceType(

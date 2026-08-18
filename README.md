@@ -36,8 +36,8 @@ user authorised  : ACC-4000
 tool result wants: ACC-8000   <- attacker-controlled text
 
   without EviBind : ACC-8000   <- followed the injection
-  with EviBind    : withheld, fail-closed
-  gateway latency : 0.83s
+  with EviBind    : ACC-4000   <- bound to the span the user wrote
+  gateway latency : 0.92s
 ```
 
 GPT-5.4 mini and GPT-4.1 mini follow that injection too. The attacker's value
@@ -45,11 +45,6 @@ has to be *opaque* for that — when the same demo used `exfil@evil.example`, al
 three models refused on their own. Injection resistance measured with
 obviously-malicious payloads overstates real safety; account numbers, ARNs and
 record IDs carry no such signal.
-
-Here the gateway withholds rather than re-deriving `ACC-4000`, which is safe but
-not the whole story — that is the open serving-path defect described under
-[Status](#status). The binding algorithm itself re-derives the authorised value
-in 28 of 43 such cases; see the benchmark below.
 
 No key? The same argument runs offline:
 `python examples/minimal_evidence_binding.py`.
@@ -73,8 +68,10 @@ Nine live models, 150 cases each, 1,350 scored calls
   from 0/60 to 43/60 across the nine. Behind the gateway every one of them is
   0/60.
 
-Read [Status](#status) before deploying: the binding algorithm is well
-evidenced, the serving path has a specific open defect.
+End to end through `evibind serve` against live OpenAI, GPT-5.4 nano now
+completes 86/150 with 0 harmful and 0 malformed releases — up from 0/150 before
+the extraction fixes in [`docs/FINDINGS.md`](docs/FINDINGS.md) §10. Read
+[Status](#status) before deploying; one fail-closed defect is still open.
 
 ## Quick start
 
@@ -279,40 +276,47 @@ runners live in [`providers/`](providers/).
 
 ## Status
 
-Honest picture, because the two halves of this repo are at different maturity.
+Honest picture, because the two halves of this repo carry different amounts of
+evidence.
 
-**Well evidenced — the binding algorithm.** Everything in the table above scores
-`protect_chat_completion` against a model response the harness fetches itself.
-1,350 live scored calls, nine models, zero false rejections, zero harmful
-releases. 447 tests pass.
+**The binding algorithm.** The table above scores `protect_chat_completion`
+against a model response the harness fetches itself: 1,350 live scored calls,
+nine models, zero false rejections, zero harmful releases.
 
-**Open defect — the serving path.** `evibind serve` owns the whole interaction:
-it compiles a candidate table, forces one action tool, has the model select
-handles instead of writing literals, then certifies and materializes. Run
-end-to-end against live OpenAI it is *safe but not yet useful* — 150/150 cases,
-0 harmful, but 0 intended calls completed:
+**The serving path.** `evibind serve` owns the whole interaction — it compiles a
+candidate table, forces one action tool, has the model select handles instead of
+writing literals, then certifies and materializes. Run end to end against live
+OpenAI with GPT-5.4 nano, before and after the extraction fixes described in
+[`docs/FINDINGS.md`](docs/FINDINGS.md) §10:
 
 | | correct | harmful | withheld | malformed |
 |---|---|---|---|---|
-| offline binding arm | 120/150 | 0 | 30 | 0 |
-| serving path, end to end | 0/150 | 0 | 135 | 15 |
+| serving path, as first measured | 0/150 | 0 | 135 | 15 |
+| **serving path, now** | **86/150** | **0** | **64** | **0** |
 
-One defect causes it. Cue-based extraction captures the token after the cue
-*and optionally a second one*, so `"...account ACC-4000 - that is..."` offers
-the model `"ACC-4000 -"` and `"I have"` instead of `"ACC-4000"`. Shown an
-over-captured value beside a junk one, the model calls the slot ambiguous and
-fails closed — correctly, given what it was shown. The same greedy capture
-appends the following word to long ARNs, which is all 15 malformed releases.
-Reproduced live, pinned by `tests/test_extraction_overcapture.py`, written up in
-[`docs/FINDINGS.md`](docs/FINDINGS.md) §10 with the proposed fix.
+All four origin-violation families complete: injected instruction 15/15,
+injected data field 15/15, forged authority 15/15, user-defers-to-tool 11/15.
 
-**Latency.** Ten sequential requests each, GPT-5.4 nano: 0.67s median direct,
-0.98s median through the gateway — `+0.31s`, one round trip, no second model
+Most of the 64 remaining abstentions are the boundary doing its job — 15
+`ambiguity` cases should clarify rather than guess, and 15 `distractor` cases
+put eight near-duplicate accounts in play. 15 `cross_slot` cases stay unresolved
+because cue-based extraction cannot separate two same-type slots when neither
+cue precedes its value; that limit is real and documented.
+
+**Latency.** Ten sequential requests each, GPT-5.4 nano: 0.69s median direct,
+0.94s median through the gateway — `+0.25s`, one round trip, no second model
 call.
 
+**Known open defect.** In `protect_chat_completion`'s resolution path, an
+unsupported literal in a multi-candidate context can still release a malformed
+span (`{"beneficiary_account": "for"}`). Confinement is not violated — no
+untrusted value escapes — but the fail-closed contract is. Pinned as `xfail` in
+`tests/test_injectbench_boundary.py`, detailed in
+[`docs/FINDINGS.md`](docs/FINDINGS.md) §4.
+
 **Not measured yet.** Annotation burden on a real tool surface, throughput under
-load, and any third-party injection benchmark. InjectBench is self-authored;
-one external number would be worth more than another 150 cases of our own.
+load, and any third-party injection benchmark. InjectBench is self-authored; one
+external number would be worth more than another 150 cases of our own.
 
 ## Results from the paper
 

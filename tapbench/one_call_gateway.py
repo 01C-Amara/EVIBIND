@@ -515,7 +515,7 @@ def _cue_allows(text: str, start: int, cue: str | None) -> bool:
     before = text[max(0, start - len(cue) - 16) : start]
     return bool(
         re.search(
-            rf"(?<!\w){re.escape(cue)}"
+            rf"(?<!\w){re.escape(cue)}(?!\w)"
             r"(?:\s+(?:is|to))?\s*(?:=|:)?\s*$",
             before,
             re.IGNORECASE,
@@ -528,7 +528,7 @@ def _reference_matches(
     cue: str,
 ) -> tuple[tuple[int, int, int], ...]:
     pattern = re.compile(
-        rf"(?<!\w){re.escape(cue)}"
+        rf"(?<!\w){re.escape(cue)}(?!\w)"
         r"(?:\s+(?:is|to))?\s*(?:=|:)?\s*"
         r"(?:\"([^\"]+)\"|'([^']+)'|([A-Za-z0-9_@.+:/-]+"
         r"(?:\s+[A-Za-z0-9_@.+:/-]+)?))",
@@ -545,6 +545,37 @@ def _reference_matches(
             end = start + len(trimmed)
         output.append((start, end, match.start()))
     return tuple(output)
+
+
+def _reference_variants(text: str, start: int, end: int) -> tuple[tuple[int, int], ...]:
+    """Both readings of one unquoted cue reference, narrowest first.
+
+    The capture admits an optional second whitespace-separated token because a
+    reference value is not always one word — ``person_ref`` may be "Jane Doe".
+    Returning only the greedy reading hides the correct value whenever the
+    words after it are prose: *"...account ACC-4000 - that is..."* reads as
+    ``"ACC-4000 -"``, and a 50-character ARN followed by "so the review can
+    close" swallows the "so".
+
+    Both readings are spans of the user's own turn, so provenance is unchanged
+    and confinement is unaffected; the model chooses between them and the
+    declared evidence type rejects what cannot be the value. A trailing token
+    carrying no alphanumeric character is never part of a value, so the greedy
+    reading is dropped in that case rather than offered.
+    """
+    surface = text[start:end]
+    split = re.search(r"\s+", surface)
+    if split is None:
+        return ((start, end),)
+    # The greedy reading already drops sentence punctuation from its own tail;
+    # the narrow reading needs the same, or "to account ACC-7000. Whatever"
+    # yields "ACC-7000." with the full stop attached.
+    narrow = surface[: split.start()].rstrip(".,;!?")
+    narrow_end = start + len(narrow)
+    tail = surface[split.end():]
+    if not any(character.isalnum() for character in tail):
+        return ((start, narrow_end),)
+    return ((start, narrow_end), (start, end))
 
 
 def _active_reference_matches(
@@ -575,7 +606,9 @@ def _active_reference_matches(
         )
         if explicitly_inactive or superseded:
             continue
-        active.append((start, end))
+        for span in _reference_variants(text, start, end):
+            if span not in active:
+                active.append(span)
     return tuple(active)
 
 
