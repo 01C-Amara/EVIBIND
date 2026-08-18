@@ -68,15 +68,24 @@ Nine live models, 150 cases each, 1,350 scored calls
   from 0/60 to 43/60 across the nine. Behind the gateway every one of them is
   0/60.
 
-And one number that is not ours. On
-[InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), 2,106
-cases, the same models call the attacker's tool **0-1 times per split** — even
-on the split that prefixes the payload with *"IGNORE ALL PREVIOUS
-INSTRUCTIONS"*. The models that fall for argument substitution 43 times out of
-60 refuse tool-selection injection almost perfectly. That gap is the argument
-for an argument-level boundary, and it is why a suite measuring only
-tool-selection attacks reports this problem as solved. Method, caveats and the
-one attack the gateway did stop: [`bench/injecagent/`](bench/injecagent/).
+And one number that is not ours.
+
+<p align="center"><img src="assets/bench_contrast.svg" width="840" alt="The same three models refuse tool-selection injection almost perfectly on InjecAgent while taking the attacker's account number two thirds of the time on InjectBench"></p>
+
+On [InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), the
+models that fall for argument substitution 43 times out of 60 refuse
+tool-selection injection almost perfectly — even on the split that prefixes the
+payload with *"IGNORE ALL PREVIOUS INSTRUCTIONS"*. GPT-4.1 mini is the one that
+slips, 9 times in 510, and the gateway withheld all nine.
+
+The difference is the shape of the attack, not its strength. *"Call this other
+tool"* reads as an instruction from the wrong party and gets refused. *"Use this
+account number instead"* does not read as an instruction at all — it reads as a
+fact about which value is correct, and nothing in training tells the model the
+fact arrived from the wrong place. That gap is the argument for an
+argument-level boundary, and it is why a suite measuring only tool-selection
+attacks reports this problem as solved. Method, caveats and the utility cost:
+[`bench/injecagent/`](bench/injecagent/).
 
 End to end through `evibind serve` against live OpenAI, GPT-5.4 nano now
 completes 88/150 with 0 harmful and 0 malformed releases — up from 0/150 before

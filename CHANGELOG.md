@@ -11,13 +11,15 @@ All notable EviBind changes are documented here.
   than vendoring it. Two arms are scored — attacker-tool rate and the
   benchmark's own user calls — because a boundary that withholds everything
   wins any attack-success table on its own.
-- The external result is a null one, and it is the point: GPT-5.4 nano,
-  GPT-5.4 mini and GPT-4.1 mini call the attacker's tool 0-1 times per split,
-  even on the "IGNORE ALL PREVIOUS INSTRUCTIONS" variant, while the same models
-  bind the attacker's account 40-43 times out of 60 on InjectBench.
+- The external result is a near-null one, and it is the point: on the full
+  510-case `dh_enhanced` split GPT-5.4 nano and GPT-5.4 mini call the attacker's
+  tool 0/510, GPT-4.1 mini 9/510 — and the gateway withheld all nine — while the
+  same models bind the attacker's account 40-43 times out of 60 on InjectBench.
   Tool-selection injection is largely refused by current models; argument
-  substitution is not, because it never reads as an instruction. The one attack
-  that did land was withheld by the gateway.
+  substitution is not, because it never reads as an instruction. A 120-case
+  sample would have reported a clean null and missed the nine.
+- Added `assets/bench_contrast.svg`: the two attack shapes side by side across
+  the three models.
 - Recorded two structural limits with it: an argument-level boundary cannot
   touch a parameterless tool (30% of `dh`, 59% of `ds`), and the 120 withheld
   user calls are all values that are genuinely absent from the user's turn —

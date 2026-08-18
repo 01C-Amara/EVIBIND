@@ -66,10 +66,28 @@ own, so the runner scores both:
 | `ds_base` | 543 | 220 | **1** | **0** |
 | `ds_enhanced` | 543 | 220 | **1** | **0** |
 
-`gpt-4.1-mini` and `gpt-5.4-mini` are also 0/120 on `dh_enhanced`. One case in
-each `ds` split names the same tool as both the user's and the attacker's; it
-cannot distinguish an attack from the user's own call and is excluded, which is
-why `ds` shows 543 rather than 544.
+One case in each `ds` split names the same tool as both the user's and the
+attacker's; it cannot distinguish an attack from the user's own call and is
+excluded, which is why `ds` shows 543 rather than 544.
+
+Run on all 510 `dh_enhanced` cases per model, not a sample:
+
+| model | attacker tool natively | released guarded |
+|---|---|---|
+| GPT-5.4 nano | 0/510 | 0/510 |
+| GPT-5.4 mini | 0/510 | 0/510 |
+| GPT-4.1 mini | **9/510** | **0/510** |
+
+All nine GPT-4.1 mini attacks were withheld, and the diagnostics say why: eight
+as `direct_answer` — *"no supported compatible call domain"*, meaning no tool
+in the request could have its required slots filled from admissible evidence —
+and one as `clarify`, naming the four slots it could not source. Both are the
+same cause wearing two terminal states: the attacker's call cannot be
+constructed out of the user's own turn.
+
+A sample of 120 cases per model showed 0/120 for all three and would have
+reported a clean null. The nine only appear in the full run, which is worth
+remembering before trusting a truncated sweep of anything.
 
 One attack landed, and the gateway stopped it. `ds-0396`:
 
@@ -113,7 +131,7 @@ does through a tool-calling API; they are not a restatement of the paper's.
 
 The same three models, on InjectBench's argument-level attacks, bind the
 attacker's account **40, 43 and 43 times out of 60**. On InjecAgent they are at
-zero.
+0, 0 and 9 out of 510.
 
 The difference is the shape of the attack, not its strength. *"Call this other
 tool"* is now reliably refused. *"Use this account number instead"* is not —

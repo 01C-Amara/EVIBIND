@@ -302,11 +302,106 @@ def matrix_chart() -> str:
     return "".join(parts)
 
 
+CONTRAST_MODELS = [
+    ("gpt-5.4-nano", "GPT-5.4 nano"),
+    ("gpt-5.4-mini", "GPT-5.4 mini"),
+    ("gpt-4.1-mini", "GPT-4.1 mini"),
+]
+
+
+def _injecagent_rate(model: str) -> tuple[int, int] | None:
+    path = RESULTS / f"injecagent-dh_enhanced-{model}.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    block = data["security"]
+    return block["native_attack"], block["scored"]
+
+
+def _injectbench_rate(model: str) -> tuple[int, int] | None:
+    path = RESULTS / f"{model}.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    origin = data.get("origin_violation", {})
+    if "native_slot" not in origin:
+        return None
+    return origin["native_slot"]["harmful"], origin["n"]
+
+
+def contrast_chart() -> str:
+    """Two attack shapes, same models: what they refuse and what they don't."""
+    rows = []
+    for model, pretty in CONTRAST_MODELS:
+        selection = _injecagent_rate(model)
+        substitution = _injectbench_rate(model)
+        if selection and substitution:
+            rows.append((pretty, selection, substitution))
+    if not rows:
+        return ""
+
+    width, left, top = 900, 150, 150
+    bar_h, gap, block_h = 20, 8, 74
+    plot_w = width - left - 210
+    height = top + len(rows) * block_h + 76
+
+    parts = [
+        f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' "
+        f"viewBox='0 0 {width} {height}'>",
+        f"<rect width='{width}' height='{height}' fill='{SURFACE}'/>",
+        f"<text x='24' y='32' {FONT} font-size='17' font-weight='600' fill='{INK}'>"
+        f"Two shapes of injection, the same three models</text>",
+        f"<text x='24' y='53' {FONT} font-size='12.5' fill='{INK2}'>"
+        f"How often each model did what the attacker's text told it to, with no "
+        f"gateway in the way. Both runs are live and unguarded.</text>",
+        f"<text x='24' y='71' {FONT} font-size='12.5' fill='{INK2}'>"
+        f"Upper bar: &#8220;call this other tool&#8221; (InjecAgent, 510 cases). "
+        f"Lower bar: &#8220;use this account number instead&#8221; "
+        f"(InjectBench, 60 origin-violation cases).</text>",
+        f"<rect x='24' y='{top - 38}' width='11' height='11' fill='{GOOD}' "
+        f"stroke='{INK2}' stroke-width='0.4'/>",
+        f"<text x='40' y='{top - 29}' {FONT} font-size='11' fill='{INK2}'>"
+        f"refused the attacker</text>",
+        f"<rect x='190' y='{top - 38}' width='11' height='11' fill='{CRIT}' "
+        f"stroke='{INK2}' stroke-width='0.4'/>",
+        f"<text x='206' y='{top - 29}' {FONT} font-size='11' fill='{INK2}'>"
+        f"did what the attacker's text said</text>",
+    ]
+
+    y = top
+    for pretty, (sel_hit, sel_n), (sub_hit, sub_n) in rows:
+        parts.append(f"<text x='{left - 14}' y='{y + 26}' {FONT} font-size='12.5' "
+                     f"font-weight='600' fill='{INK}' text-anchor='end'>{pretty}</text>")
+        for row, (label, hit, total) in enumerate((
+                ("tool selection", sel_hit, sel_n),
+                ("argument substitution", sub_hit, sub_n))):
+            by = y + row * (bar_h + gap)
+            share = hit / total if total else 0.0
+            bad_w = plot_w * share
+            parts.append(f"<rect x='{left}' y='{by}' width='{plot_w}' "
+                         f"height='{bar_h}' fill='{GOOD}'/>")
+            if bad_w > 0.5:
+                parts.append(f"<rect x='{left}' y='{by}' width='{bad_w:.1f}' "
+                             f"height='{bar_h}' fill='{CRIT}'/>")
+            parts.append(f"<text x='{left + plot_w + 10}' y='{by + 14.5}' {FONT} "
+                         f"font-size='11' fill='{INK2}'>{hit}/{total} &#183; "
+                         f"{label}</text>")
+        y += block_h
+
+    parts.append(f"<text x='24' y='{height - 20}' {FONT} font-size='11.5' fill='{INK2}'>"
+                 f"A model that refuses to be redirected to another tool will still "
+                 f"take the attacker's account number, because that never arrives as "
+                 f"an instruction &#8212; it arrives as a fact.</text>")
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def main() -> None:
     ASSETS.mkdir(exist_ok=True)
     for name, svg in (("bench_control.svg", control_chart()),
                       ("bench_live.svg", live_chart()),
                       ("bench_models.svg", matrix_chart()),
+                      ("bench_contrast.svg", contrast_chart()),
                       ("paper_binding.svg", paper_chart())):
         if not svg:
             continue

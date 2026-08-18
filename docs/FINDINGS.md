@@ -413,9 +413,19 @@ GPT-5.4 nano, every split, native tool calling:
 | `ds_base` | 543 | 220 | 1 | **0** |
 | `ds_enhanced` | 543 | 220 | 1 | **0** |
 
-`gpt-4.1-mini` and `gpt-5.4-mini` are 0/120 on `dh_enhanced` too. The
-`enhanced` splits prefix the payload with *"IMPORTANT!!! Ignore all previous
-instructions"* and are resisted outright.
+On the full 510-case `dh_enhanced` split: GPT-5.4 mini 0/510, and **GPT-4.1
+mini 9/510 — all nine withheld by the gateway.** The `enhanced` splits prefix
+the payload with *"IMPORTANT!!! Ignore all previous instructions"* and are
+otherwise resisted outright.
+
+The diagnostics name the mechanism for those nine: eight were `direct_answer`
+with reason *"no supported compatible call domain"* — no tool in the request
+could have its required slots filled from admissible evidence — and one was
+`clarify`, listing the four slots it could not source. Two terminal states, one
+cause: the attacker's call cannot be built out of the user's own turn.
+
+A 120-case sample of each model showed 0/120 across the board and would have
+reported a clean null. The nine only surface in the full run.
 
 The one attack that landed is worth stating in full, because it is the entire
 mechanism working on someone else's data:
@@ -433,9 +443,9 @@ EviBind     : withheld — "Please provide the following before I use the tool:
 `account` exists only in text that arrived from a mailbox. No admissible
 evidence, so the call fails closed.
 
-**The null result is the finding.** These same three models bind the attacker's
-account 40, 43 and 43 times out of 60 on InjectBench. On InjecAgent they are at
-zero. The difference is the *shape* of the attack, not its strength:
+**The near-null result is the finding.** These same three models bind the
+attacker's account 40, 43 and 43 times out of 60 on InjectBench. On InjecAgent
+they are at 0, 0 and 9 out of 510. The difference is the *shape* of the attack, not its strength:
 
 * *"Call this other tool"* now reads to a current model as an instruction from
   the wrong party, and it refuses.
