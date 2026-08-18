@@ -363,6 +363,119 @@ def literal_to_pointer(action: dict[str, Any], lattice: dict[str, Any]) -> dict[
     return {"mode": "call", "tool_id": tool["tool_id"], "arguments": pointer_args}
 
 
+ACTION_CRITICAL_SLOT_ROLES = frozenset({"control", "identifier", "defaultable"})
+
+TIER_B_PROPOSAL_SOURCE = "model_proposed_user_span"
+
+
+def _slot_evidence_types(tools: list[dict[str, Any]], tool_id: str) -> dict[str, str]:
+    """Declared evidence type per slot, from the tool contract."""
+    for tool in tools or []:
+        name = str(tool.get("canonical_name") or tool.get("name") or "")
+        if name != tool_id:
+            continue
+        properties = (tool.get("parameters") or {}).get("properties") or {}
+        types: dict[str, str] = {}
+        for slot, prop in properties.items():
+            if not isinstance(prop, dict):
+                continue
+            declared = prop.get("x-tap-evidence-type") or prop.get(
+                "x-evibind-evidence-type")
+            if isinstance(declared, str) and declared:
+                types[slot] = declared
+        return types
+    return {}
+
+
+def _interchangeable_slot_pairs(
+    lattice: dict[str, Any],
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    materialized: dict[str, Any],
+) -> list[tuple[str, str]]:
+    """Action-critical slot pairs whose assignment the boundary cannot verify.
+
+    When cue-based extraction finds nothing, a value reaches a slot through
+    Tier-B proposal-span support: the model proposed it, and it appears in the
+    user's own text. That rule is deliberately origin-checking — it asks *where
+    the value came from*, not *which slot it belongs in*. ``_proposal_span``
+    searches the whole user turn and ``_contract_value_valid`` checks the slot's
+    schema, and neither distinguishes ``from_account`` from ``to_account``.
+
+    So for a tool with two same-typed critical slots, both assignments are
+    equally well supported. "Move 500.00 USD. The receiving account is ACC-7000;
+    take the money out of ACC-3000" reverses the transfer if the two are
+    exchanged, and every value involved is still a span of the user's own turn.
+    Confinement is not violated; the direction of the payment is.
+
+    The ICLR mixed-order revision measures this as the one relation where model
+    selection is unreliable — two-slot destination composition is exact across
+    all four presentation orders in 16% of cases for Qwen3.6-35B and 64% for
+    GPT-5.6-Luna, against 100% on the other five relations — so the boundary is
+    relying on the model exactly where the model is weakest.
+
+    A pair only counts when the contract declares both slots the same
+    evidence type. Without that an amount and an account reference look
+    identical, because the schema check sees two strings.
+
+    Returns the pairs. The caller decides whether to clarify, because abstaining
+    costs utility on every correctly assigned call and that trade belongs to the
+    deployment rather than the library.
+    """
+    tool_id = materialized.get("tool")
+    arguments = materialized.get("arguments")
+    if not isinstance(tool_id, str) or not isinstance(arguments, dict):
+        return []
+    tool = lattice.get("tools", {}).get(tool_id)
+    if not isinstance(tool, dict):
+        return []
+    slots = tool.get("slots") or {}
+    text = request_text(messages)
+    # Two slots are only exchangeable if the contract says they hold the same
+    # kind of thing. Without this an amount and an account look identical to
+    # the schema check, since both are strings.
+    evidence_types = _slot_evidence_types(tools, tool_id)
+
+    critical = [
+        name for name, spec in slots.items()
+        if spec.get("role") in ACTION_CRITICAL_SLOT_ROLES
+        and not spec.get("generation_allowed")
+        and name in arguments
+    ]
+
+    def admits(slot_name: str, value: Any) -> bool:
+        """Would this slot accept this value under the same Tier-B rule?"""
+        row = slots.get(slot_name)
+        if row is None:
+            return False
+        if _proposal_span(text, value) is None:
+            return False
+        return _contract_value_valid(row, value)
+
+    def accepted_via_proposal(slot_name: str, value: Any) -> bool:
+        row = slots.get(slot_name) or {}
+        return any(row_candidate.get("source_kind") == TIER_B_PROPOSAL_SOURCE
+                   and _same(row_candidate.get("value"), value)
+                   for row_candidate in row.get("candidates", []))
+
+    pairs: list[tuple[str, str]] = []
+    for index, first in enumerate(sorted(critical)):
+        for second in sorted(critical)[index + 1:]:
+            left, right = arguments.get(first), arguments.get(second)
+            if left is None or right is None or _same(left, right):
+                continue
+            first_type = evidence_types.get(first)
+            second_type = evidence_types.get(second)
+            if not first_type or first_type != second_type:
+                continue
+            if not (accepted_via_proposal(first, left)
+                    and accepted_via_proposal(second, right)):
+                continue
+            if admits(first, right) and admits(second, left):
+                pairs.append((first, second))
+    return pairs
+
+
 def resolve_deployable_prediction(
     runtime_case: dict[str, Any],
     prediction: dict[str, Any],
@@ -462,6 +575,26 @@ def resolve_deployable_prediction(
     resolution["total_resolution_seconds"] = time.perf_counter() - started
     resolution["runtime_input_fields"] = list(RUNTIME_INPUT_FIELDS)
     resolution["forbidden_runtime_fields"] = list(FORBIDDEN_RUNTIME_FIELDS)
+
+    materialized_action = resolution["materialized_action"]
+    interchangeable = _interchangeable_slot_pairs(
+        lattice, runtime_case.get("messages", []),
+        runtime_case.get("tools", []), materialized_action)
+    resolution["interchangeable_slot_pairs"] = [list(pair) for pair in interchangeable]
+    if interchangeable and (reference_context or {}).get(
+        "clarify_interchangeable_slots"
+    ):
+        missing = sorted({slot for pair in interchangeable for slot in pair})
+        resolution["materialized_action"] = {
+            "mode": "need_input",
+            "tool": materialized_action.get("tool"),
+            "arguments": {},
+            "payload": {
+                "reason": "interchangeable slot assignment",
+                "missing": missing,
+            },
+        }
+        resolution["clarified_interchangeable_slots"] = missing
     return resolution["materialized_action"], resolution
 
 

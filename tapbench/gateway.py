@@ -500,6 +500,10 @@ def protect_chat_completion(
     if not isinstance(dialogue_state, dict):
         raise GatewayError("evibind.dialogue_state must be an object")
     reference_context["action_risk_budget"] = action_risk_budget
+    clarify_interchangeable = options.get("clarify_interchangeable_slots", False)
+    if not isinstance(clarify_interchangeable, bool):
+        raise GatewayError("evibind.clarify_interchangeable_slots must be a boolean")
+    reference_context["clarify_interchangeable_slots"] = clarify_interchangeable
     runtime_case = {
         "messages": _runtime_messages(request_payload.get("messages")),
         "tools": tools,

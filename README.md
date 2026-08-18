@@ -342,6 +342,17 @@ cue precedes its value; that limit is real and documented.
 0.94s median through the gateway — `+0.25s`, one round trip, no second model
 call.
 
+**One exposure worth knowing before you deploy.** If a model swaps two
+same-typed critical slots — `from_account` and `to_account` — the boundary
+releases it. Both values are the user's own spans, so confinement has no
+objection, and the payment goes the wrong way. The ICLR mixed-order revision
+measures model selection on exactly this relation at 16–64% exact across
+presentation orders, against 100% on the other five. Set
+`{"evibind": {"clarify_interchangeable_slots": true}}` to withhold instead; it
+is off by default because it also withholds the correctly assigned call, which
+is the point — the two are indistinguishable to the boundary.
+[`docs/FINDINGS.md`](docs/FINDINGS.md) §15–16.
+
 **Not measured yet.** Annotation burden on a real tool surface, and throughput
 under load. The third-party number now exists —
 [`bench/injecagent/`](bench/injecagent/) — and it comes with its own honest

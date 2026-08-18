@@ -4,6 +4,28 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- **Found: a swapped two-slot assignment is released.** All 15 `cross_slot`
+  cases send the reversed transfer — `from_account` and `to_account` exchanged
+  — because Tier-B proposal-span support admits a value for being the model's
+  proposal *and* appearing in the user's turn, and both halves are origin
+  checks. `_proposal_span` searches the whole turn and `_contract_value_valid`
+  checks the slot schema; neither distinguishes one same-typed slot from
+  another. Confinement holds; the direction of the payment does not.
+- Added `clarify_interchangeable_slots`, a request option **off by default**.
+  When on, the boundary withholds whenever two action-critical slots declared
+  with the same evidence type hold values each admissible for the other:
+  swap released 15/15 → 0/15. It withholds the correctly assigned call too,
+  which is the finding rather than a defect — the two are indistinguishable to
+  the boundary — so the trade is left to the deployment.
+- The guard requires a shared declared evidence type. Without it an amount and
+  an account reference compare as interchangeable, since the schema check sees
+  two strings; that false positive is why `x-evibind-slot-role: content` not
+  being honoured by the offline lattice is recorded in `docs/FINDINGS.md` §16.
+- Motivated by the ICLR mixed-order revision, which localises the residual
+  binding error to a two-slot presentation-order interaction: exact across all
+  four orders in 16% of cases for Qwen3.6-35B and 64% for GPT-5.6-Luna, against
+  100% on the other five relations.
+
 - Attempted a Claude Haiku row through a Claude Code subagent harness, since no
   `ANTHROPIC_API_KEY` is available here, and recorded it as a **method failure
   rather than a result**. It returned 0/270, but the harness must tell the agent
