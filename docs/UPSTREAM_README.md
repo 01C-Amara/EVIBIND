@@ -105,21 +105,21 @@ evibind inspect --request request.evibind.json --output inspection.json
 ```
 
 Initialization is a review scaffold, not an authorization decision. See
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md) for modes, certificate replay, and
+[`docs/OPERATIONS.md`](OPERATIONS.md) for modes, certificate replay, and
 provider-envelope adapters.
 
 For host-owned, complete-mediation tool dispatch, see
-[`docs/HOST_SDK.md`](docs/HOST_SDK.md).
+[`docs/HOST_SDK.md`](HOST_SDK.md).
 
 For versioned clarification, trust labels, and exact-manifest effect
 confirmation, see
-[`docs/STATE_AND_EFFECTS.md`](docs/STATE_AND_EFFECTS.md).
+[`docs/STATE_AND_EFFECTS.md`](STATE_AND_EFFECTS.md).
 For the versioned one-call matched-compute suite, compiler/selector metrics, and
-payload-bound replay protocol, see [`docs/EVIBENCH.md`](docs/EVIBENCH.md).
+payload-bound replay protocol, see [`docs/EVIBENCH.md`](EVIBENCH.md).
 The canonical ICLR 2027 paper source, formal guarantee, and executable claim
-ledger live in [`paper/`](paper/README.md). Start with
-[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) for the evidence tiers and
-exact commands, and [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md) for the supported
+ledger live in `paper/` in the research bundle (not shipped in this repo). Start with
+[`docs/REPRODUCIBILITY.md`](REPRODUCIBILITY.md) for the evidence tiers and
+exact commands, and [`docs/PUBLIC_API.md`](PUBLIC_API.md) for the supported
 runtime and research surfaces.
 
 The gateway compiles and filters evidence candidates before inference. It removes
@@ -223,7 +223,7 @@ These are synthetic mechanism and systems results, not human-subject evidence
 or a universal production guarantee. The proxy/subagent role-play corpus is not
 reported as independent human authorship. BoundaryBench-v1 and the paper
 evidence bundle are versioned release assets; see
-[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md).
+[`docs/REPRODUCIBILITY.md`](REPRODUCIBILITY.md).
 
 The verifier establishes structural admissibility, not which admissible value
 the user intended. Compact top-1 presentation is therefore an opt-in usability

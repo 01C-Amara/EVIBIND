@@ -3,10 +3,11 @@
 > **Status (2026-07-30):** This document preserves frozen legacy results used
 > as boundary evidence. It is not the canonical manuscript and it is not a
 > claim that the work is submission-ready. The post-verdict source is
-> [`paper/main.tex`](../paper/main.tex), its executable claim ledger is
-> [`paper/claims.yaml`](../paper/claims.yaml), and the powered study remains
+> **Note.** The paths below live in the research bundle, not in this product repo.
+> `paper/main.tex`, its executable claim ledger is
+> `paper/claims.yaml`, and the powered study remains
 > pending under
-> [`configs/evibench_powered_extension_preregistration_v1.yaml`](../configs/evibench_powered_extension_preregistration_v1.yaml).
+> `configs/evibench_powered_extension_preregistration_v1.yaml`.
 
 ## Legacy Draft Read
 
