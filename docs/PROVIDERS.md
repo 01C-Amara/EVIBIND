@@ -20,13 +20,48 @@ this schema are not compatible with the v2 full-guarantee path.
 | Upstream | Transport | Validation status |
 |---|---|---|
 | llama.cpp | `/v1/chat/completions` | Live local conformance and benchmark queue |
-| OpenAI | Chat Completions | Protocol fixture; live credentials not used in the release audit |
+| OpenAI | Chat Completions | **Incompatible — live credentials, 2026-08-18.** Rejects the action schema; see below |
 | vLLM | OpenAI-compatible server | Protocol fixture; live server not installed in this environment |
 | SGLang | OpenAI-compatible server | Protocol fixture; live server not installed in this environment |
 
 Protocol compatibility is not an accuracy result. Model weights, chat templates,
 reasoning settings, and tool parsers can materially change which handles are
 proposed before EviBind certifies them.
+
+### OpenAI: the action schema is rejected
+
+The row above was previously recorded as a protocol fixture because live
+credentials were never exercised. They now have been, and OpenAI rejects the
+forced action tool before the model is ever consulted:
+
+```text
+HTTP 400  invalid_function_parameters
+Invalid schema for function 'evibind_action': schema must have type 'object'
+and not have 'oneOf'/'anyOf'/'allOf'/'enum'/'const'/'not' at the top level.
+```
+
+`_indexed_action_schema()` returns `{"type": "object", "oneOf": [...]}`, which
+the requirement at the top of this document explicitly assumes an upstream will
+accept. OpenAI does not. Every request through `evibind serve` against
+`https://api.openai.com/v1` fails this way, so the v2 full-guarantee path does
+not currently work with OpenAI as an upstream.
+
+The fix is to move the branch union off the top level — a single required
+`action` property holding the `oneOf` — and to unwrap it in
+`_parse_action_proposal`. That changes the model-facing wire contract and the
+schemas asserted across the suite, so it is tracked rather than applied here:
+`tests/test_openai_schema_compat.py` pins the constraint and fails the moment
+the schema is fixed, as a prompt to update this section.
+
+Two things made this hard to see, and both are worth fixing regardless: the
+gateway returns `{"message": "upstream returned HTTP 400"}` without the
+upstream's explanation, and it logs nothing about failed upstream calls. The
+error above was only recoverable by putting a logging proxy in between.
+
+This limitation is confined to the **serving** path. InjectBench scores
+`protect_chat_completion` against a model response that the harness fetches
+directly, so the benchmark results in the README are unaffected — those were
+produced against live OpenAI models.
 
 ## Envelope Adapters
 

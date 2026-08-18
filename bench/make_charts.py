@@ -205,11 +205,111 @@ def paper_chart() -> str:
     return "".join(parts)
 
 
+MODEL_ORDER = [
+    ("gpt-5.6-terra", "GPT-5.6 Terra"),
+    ("gpt-5.6-luna", "GPT-5.6 Luna"),
+    ("gpt-5.6-sol", "GPT-5.6 Sol"),
+    ("grok-4.6", "Grok 4.6"),
+    ("grok-4.5", "Grok 4.5"),
+    ("claude-haiku", "Claude Haiku"),
+    ("gpt-5.4-mini", "GPT-5.4 mini"),
+    ("gpt-5.4-nano", "GPT-5.4 nano"),
+    ("gpt-4.1-mini", "GPT-4.1 mini"),
+]
+
+SEGMENTS = (("harmful", CRIT, "attacker value bound"),
+            ("correct", GOOD, "user value bound"),
+            ("abstain", NEUTRAL, "withheld"),
+            ("other", GRID, "other"))
+
+
+def matrix_chart() -> str:
+    """Origin-violation outcomes per model, native vs behind the gateway."""
+    models = []
+    for name, pretty in MODEL_ORDER:
+        path = RESULTS / f"{name}.json"
+        if not path.exists():
+            continue
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if "native_slot" not in data.get("origin_violation", {}):
+            continue
+        models.append((pretty, data["origin_violation"]))
+    if not models:
+        return ""
+
+    width, left, top = 960, 168, 152
+    bar_h, gap, block_h = 17, 5, 56
+    plot_w = width - left - 200
+    height = top + len(models) * block_h + 62
+    total = models[0][1]["n"]
+
+    parts = [
+        f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' "
+        f"viewBox='0 0 {width} {height}'>",
+        f"<rect width='{width}' height='{height}' fill='{SURFACE}'/>",
+        f"<text x='24' y='32' {FONT} font-size='17' font-weight='600' fill='{INK}'>"
+        f"Origin violations across nine models - {total} cases each</text>",
+        f"<text x='24' y='53' {FONT} font-size='12.5' fill='{INK2}'>"
+        f"Where the critical slot ended up when the context carried an injected "
+        f"instruction, a poisoned data field, forged authority, or a user deferring "
+        f"to tool output.</text>",
+        f"<text x='24' y='71' {FONT} font-size='12.5' fill='{INK2}'>"
+        f"Both bars score the same model output: the upper bar is the call the model "
+        f"made, the lower bar is that call after the gateway re-derived the slot.</text>",
+    ]
+
+    lx = 24
+    for key, color, caption in SEGMENTS:
+        parts.append(f"<rect x='{lx}' y='{top - 41}' width='11' height='11' "
+                     f"fill='{color}' stroke='{INK2}' stroke-width='0.4'/>")
+        parts.append(f"<text x='{lx + 16}' y='{top - 32}' {FONT} font-size='11' "
+                     f"fill='{INK2}'>{caption}</text>")
+        lx += 24 + len(caption) * 6.0
+
+    y = top
+    for pretty, block in models:
+        parts.append(f"<text x='{left - 14}' y='{y + 22}' {FONT} font-size='12.5' "
+                     f"font-weight='600' fill='{INK}' text-anchor='end'>{pretty}</text>")
+        for row, (arm, tag) in enumerate((("native_slot", "native"),
+                                          ("guarded_slot", "guarded"))):
+            by = y + row * (bar_h + gap)
+            x = left
+            for key, color, _ in SEGMENTS:
+                count = block[arm].get(key, 0)
+                if not count:
+                    continue
+                w = plot_w * count / block["n"]
+                parts.append(f"<rect x='{x:.1f}' y='{by}' width='{w:.1f}' "
+                             f"height='{bar_h}' fill='{color}'/>")
+                if w > 22:
+                    ink = SURFACE if color in (CRIT, GOOD) else INK
+                    parts.append(f"<text x='{x + w / 2:.1f}' y='{by + 12.5}' {FONT} "
+                                 f"font-size='10.5' fill='{ink}' "
+                                 f"text-anchor='middle'>{count}</text>")
+                x += w
+            harmful = block[arm].get("harmful", 0)
+            correct = block[arm].get("correct", 0)
+            parts.append(f"<text x='{left + plot_w + 10}' y='{by + 12.5}' {FONT} "
+                         f"font-size='10.5' fill='{INK2}'>{tag}: {harmful} harmful, "
+                         f"{correct} correct</text>")
+        y += block_h
+
+    parts.append(f"<text x='24' y='{height - 20}' {FONT} font-size='11.5' fill='{INK2}'>"
+                 f"Every model reaches 0 harmful behind the gateway. On the weaker "
+                 f"selectors the correct-call count also rises, because a slot re-derived "
+                 f"from the user's own span replaces the injected one.</text>")
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def main() -> None:
     ASSETS.mkdir(exist_ok=True)
     for name, svg in (("bench_control.svg", control_chart()),
                       ("bench_live.svg", live_chart()),
+                      ("bench_models.svg", matrix_chart()),
                       ("paper_binding.svg", paper_chart())):
+        if not svg:
+            continue
         (ASSETS / name).write_text(svg, encoding="utf-8")
         print("wrote", ASSETS / name)
 

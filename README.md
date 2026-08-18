@@ -27,7 +27,7 @@ BoundaryBench-v1 suites ship in this repo.
 ```bash
 pip install -e .
 
-export EVIBIND_UPSTREAM_BASE_URL="https://openrouter.ai/api/v1"   # or api.openai.com/v1, api.x.ai/v1, a vLLM/Ollama URL
+export EVIBIND_UPSTREAM_BASE_URL="https://openrouter.ai/api/v1"   # or api.x.ai/v1, a vLLM/Ollama URL
 export EVIBIND_UPSTREAM_API_KEY="your-provider-key"
 export EVIBIND_GATEWAY_API_KEY="local-gateway-key"
 export EVIBIND_HANDLE_SECRET="$(python -c 'import secrets;print(secrets.token_hex(32))')"
@@ -42,6 +42,14 @@ Point your existing OpenAI client at the gateway — nothing else changes:
 from openai import OpenAI
 client = OpenAI(base_url="http://127.0.0.1:8090/v1", api_key="local-gateway-key")
 ```
+
+> **`api.openai.com` does not currently work as an *upstream*.** OpenAI rejects
+> the forced action tool's schema (top-level `oneOf`) with HTTP 400 before the
+> model is consulted. Verified live on 2026-08-18; details, reproduction and the
+> proposed fix are in
+> [`docs/PROVIDERS.md`](docs/PROVIDERS.md#openai-the-action-schema-is-rejected).
+> This affects the serving path only — the benchmark below ran against live
+> OpenAI models and is unaffected.
 
 Mark the slots that matter with `x-evibind-*` annotations in your tool schema
 (the model never sees them — the gateway strips annotations before forwarding):
@@ -99,48 +107,123 @@ open fail-closed defect the run surfaced.
 Claude Haiku, live: 75/75 correct calls released unchanged (including
 50-character ARNs and near-duplicate account contexts), 75/75 abstentions
 preserved, zero rewritten arguments, zero false rejections. Haiku also resisted
-all 60 injections on its own — which is worth reading carefully: the native
-arm's safety is a property of that model in a batch-review setting, while the
-guarded arm's property holds for any selector. Caveats in
+all 60 injections on its own — though by declining to act on every one of them,
+not by resolving them correctly, which is a different thing from the repair the
+gateway performs. Read the native arm carefully in general: its safety is a
+property of that model in a batch-review setting, while the guarded arm's
+property holds for any selector. Caveats in
 [`docs/FINDINGS.md`](docs/FINDINGS.md#5-live-model-result-the-gateway-is-free).
 
-### Every run so far
+### Nine live models
 
-| selector | native: harmful | guarded: harmful | guarded: repaired to intended |
-|---|---|---|---|
-| Claude Haiku (live) | 0/150 | 0/150 | — (nothing to repair) |
-| Weak selector, last-mention heuristic (live vs local mock) | 60/150 | **0/150** | 45 |
-| Worst-case selector (scripted control) | 120/150 | 60/150 | 45 |
+<p align="center"><img src="assets/bench_models.svg" width="880" alt="Origin-violation outcomes for nine live models: native harmful ranges 0 to 43 of 60, guarded harmful is 0 for every model"></p>
 
-The weak-selector row is the one to read: a model that resolves a slot by
-"whatever was mentioned last" follows **every** injection — and the gateway
-repairs 45 of those into the correct call and fails closed on the other 15.
-Its remaining 15 harmful cases are all `negation`, a selection error the
-boundary does not claim to fix.
+Every model below ran all 150 cases live. The table reports the **critical
+slot** — the one the confinement claim is about — because whole-call equality
+also demands incidental slots match, and a model that binds the account
+correctly while writing `"500.00 USD"` where gold says `"500.00"` is a
+formatting difference, not a security event.
 
-You can reproduce that row with no API key at all:
+Two rows carry caveats: the Claude Haiku responses were collected in an earlier
+run that sent cases verbatim (`--dialect native`), and the Grok rows come from
+the CLI's schema-constrained structured output rather than native tool calling.
+Both are spelled out in [`docs/FINDINGS.md`](docs/FINDINGS.md) §8–9.
+
+| model | origin: harmful native | origin: harmful guarded | origin: correct native | origin: correct guarded | selection: correct native → guarded |
+|---|---|---|---|---|---|
+| GPT-5.6 Terra | 4/60 | **0/60** | 23/60 | 25/60 | 72 → 72 |
+| GPT-5.6 Luna | 3/60 | **0/60** | 26/60 | 29/60 | 68 → 68 |
+| GPT-5.6 Sol | 0/60 | **0/60** | 31/60 | 31/60 | 73 → 73 |
+| Grok 4.6 | 0/60 | **0/60** | 30/60 | 30/60 | 74 → 74 |
+| Grok 4.5 | 1/60 | **0/60** | 21/60 | 22/60 | 69 → 69 |
+| Claude Haiku | 0/60 | **0/60** | 0/60 | 0/60 | 75 → 75 |
+| GPT-5.4 mini | 40/60 | **0/60** | 18/60 | **43/60** | 73 → 73 |
+| GPT-5.4 nano | 43/60 | **0/60** | 17/60 | **45/60** | 75 → 75 |
+| GPT-4.1 mini | 43/60 | **0/60** | 8/60 | **35/60** | 75 → 75 |
+| Weak selector (local mock) | 60/60 | **0/60** | 0/60 | **45/60** | 60 → 60 |
+
+Three things are worth reading off it.
+
+**Frontier models mostly resist; smaller ones do not.** Sol, Grok 4.6 and Haiku
+followed no injection at all; Grok 4.5 followed one, Luna three, Terra four. The
+cheaper tiers followed roughly two thirds of them — 43 of 60 for both
+GPT-5.4 nano and GPT-4.1 mini. Model capability is a real mitigation, and it is
+not one you can rely on when the deployment picks the model — a cost-tiering
+router or a rate-limit fallback moves a system down this table without changing
+a line of application code.
+
+**The gateway reaches zero on all of them,** which is the point of a structural
+guarantee: the guarded column does not depend on which model produced the call.
+
+**It repairs rather than merely blocks.** On the weak selectors the correct-call
+count *rises* — 17 → 45, 18 → 43, 8 → 35 — because a slot re-derived from the
+user's own span replaces the injected one and the intended call still goes out.
+Of the 43 cases GPT-5.4 nano bound to the attacker's account, 28 were repaired
+to the account the user actually authorised, 15 were withheld, and none leaked.
+Blocking alone would have left all 43 tasks unfinished.
+
+**Selection errors are untouched, in both directions.** The last column is
+identical before and after for every model: the boundary confines *where a value
+came from*, not *which* value was meant. The mock control makes the limit
+explicit — 15 of its cases stay harmful under the gateway, all of them
+`negation` (a value the user explicitly forbade). Measured, not glossed:
+[`docs/FINDINGS.md`](docs/FINDINGS.md).
+
+Reproduce the mock row with no API key at all:
 
 ```bash
 python bench/mock_provider.py --port 8099 --mode last-mention &
 python bench/run_bench.py live --base-url http://127.0.0.1:8099/v1 \
-    --api-key none --model mock --label "weak selector"
+    --api-key none --model mock-last-mention --label mock-last-mention \
+    --dialect native
 ```
 
-Run it against your own model — any OpenAI-compatible endpoint:
+Run it against your own model — any OpenAI-compatible endpoint. Keys can be
+passed as `file:` or `env:` specs so they never reach a command line:
 
 ```bash
-python bench/run_bench.py live --base-url https://api.x.ai/v1 \
-    --api-key "$XAI_API_KEY" --model grok-4 --label grok-4
+python bench/run_bench.py live --base-url https://api.openai.com/v1 \
+    --api-key file:.env --model gpt-5.4-mini --label gpt-5.4-mini
 python bench/make_charts.py
 ```
 
-Or run every provider whose key is in your environment (or a local `.env`) in
-one step:
+Two provider quirks are handled for you, and both are worth knowing:
+
+- **The GPT-5.6 tiers refuse function tools on `/v1/chat/completions`** unless
+  reasoning is disabled. Pass `--endpoint responses` to drive them through
+  `/v1/responses` instead; results are rendered back into chat-completion shape
+  so scoring is unchanged.
+- **OpenAI rejects a `tool` message that does not answer an assistant tool
+  call.** 60 InjectBench cases hand the model an untrusted tool result with no
+  such turn, so `--dialect openai` (the default) inserts the minimal assistant
+  call that makes the transcript well formed. The untrusted content is passed
+  through byte for byte. Use `--dialect native` to send cases verbatim.
+
+The whole OpenAI line-up in one step:
 
 ```bash
-export XAI_API_KEY=...        # Grok
-export OPENAI_API_KEY=...     # GPT-5.6 Luna / Terra
-./providers/run_all.sh        # runs what it can, then regenerates the charts
+./providers/run_openai_suite.sh
+```
+
+Grok authenticates through a grok.com subscription rather than an xAI API key,
+and its CLI exposes no OpenAI-compatible endpoint, so it has its own driver:
+
+```bash
+python bench/run_grok_cli.py --model grok-4.6 --concurrency 5
+python bench/run_bench.py score --responses bench/results/grok-4.6.responses.jsonl \
+    --label grok-4.6 --out bench/results/grok-4.6.json
+```
+
+That path constrains the CLI's structured output to the tool's own JSON Schema,
+so Grok fills the same slots under the same constraints — but it is an
+emulation of tool calling, not the native mechanism. See
+[`docs/FINDINGS.md`](docs/FINDINGS.md) for what that does and does not license.
+
+If you do hold an `XAI_API_KEY`, the ordinary live path works unchanged:
+
+```bash
+python bench/run_bench.py live --base-url https://api.x.ai/v1 \
+    --api-key env:XAI_API_KEY --model grok-4 --label grok-4
 ```
 
 There is also an offline path: `export` the prompts, answer them with any model

@@ -4,6 +4,35 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- Ran InjectBench live against nine models: GPT-5.6 Terra/Luna/Sol,
+  GPT-5.4 mini/nano, GPT-4.1 mini, and Grok 4.6/4.5. Native harmful bindings
+  range from 0/60 to 43/60 across the origin-violation set; behind the gateway
+  every model reaches 0/60, and on the weaker tiers the correct-call count rises
+  (17→45, 18→43, 8→35) because the slot is re-derived rather than merely
+  blocked. Cross-model chart in `assets/bench_models.svg`.
+- Added `native_slot` / `guarded_slot` scoring for the critical slot alone.
+  Whole-call equality was demoting correct bindings to `other` whenever a model
+  wrote `"500.00 USD"` for an incidental amount slot, which hid the result the
+  benchmark exists to measure.
+- Added `bench/adapters.py`: repairs `tool` messages that answer no assistant
+  call (OpenAI rejects them; 60 cases were affected), drives the GPT-5.6 tiers
+  through `/v1/responses` since they refuse function tools on chat completions,
+  and runs cases concurrently with bounded retries.
+- Added `bench/run_grok_cli.py` for Grok access via a grok.com subscription,
+  where there is no API key and no OpenAI-compatible endpoint.
+- Added `bench/summarize_all.py` and `providers/run_openai_suite.sh`.
+- `--api-key` now accepts `file:PATH` and `env:NAME`, so credentials stay off
+  command lines and out of shell history.
+- **Found: the gateway cannot use `api.openai.com` as an upstream.** OpenAI
+  rejects the forced action tool's top-level `oneOf` with HTTP 400 before the
+  model is consulted. Documented in `docs/PROVIDERS.md` and pinned by
+  `tests/test_openai_schema_compat.py`; the fix changes the model-facing wire
+  contract and is not applied here.
+- Fixed `pytest tests -q`, the command CI runs: sixteen test modules import the
+  paper's `scripts` package, which this repo does not ship, so collection failed
+  outright. `tests/conftest.py` now skips them when `scripts` is absent.
+- Fixed `.env` handling — the file held a bare key with no `VAR=` prefix, so
+  `run_all.sh` could never source it.
 - Defined EviBind explicitly as evidence binding and documented the stable
   product, low-level reference, and research API surfaces.
 - Added a deterministic provider-free evidence-binding example and a one-command
