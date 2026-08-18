@@ -32,3 +32,32 @@ export EVIBIND_UPSTREAM_BASE_URL="https://api.openai.com/v1"  # GPT-5.6 Luna/Ter
 export EVIBIND_UPSTREAM_BASE_URL="https://openrouter.ai/api/v1"
 export EVIBIND_UPSTREAM_BASE_URL="http://localhost:11434/v1"  # Ollama
 ```
+
+## Running Grok from Windows (the `grok.exe` CLI)
+
+The CLI is a Windows binary, so run this from PowerShell or WSL on the machine
+where it is installed — not from a Linux sandbox that only mounts your folders.
+
+```powershell
+# 1. export the 150 model-visible prompts
+python bench\run_bench.py export --out bench\results\requests.jsonl
+
+# 2. answer each one with the CLI, writing one JSON line per case:
+#    {"case_id": "...", "response": {<OpenAI-style chat completion>}}
+#    (any script that loops over requests.jsonl works)
+
+# 3. score both arms and refresh the charts
+python bench\run_bench.py score --responses bench\results\responses_grok.jsonl `
+    --label grok-4 --out bench\results\grok-4.json
+python bench\make_charts.py
+```
+
+If the CLI exposes an OpenAI-compatible endpoint, skip the export/score dance
+and point `run_bench.py live` at it directly.
+
+## No key, no network
+
+`bench/mock_provider.py` serves the same API locally and implements three
+selector behaviours (`last-mention`, `first-mention`, `aligned`). It is how CI
+keeps the live path working, and it reproduces the weak-selector row in the
+README without any credentials.

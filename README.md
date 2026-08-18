@@ -104,6 +104,28 @@ arm's safety is a property of that model in a batch-review setting, while the
 guarded arm's property holds for any selector. Caveats in
 [`docs/FINDINGS.md`](docs/FINDINGS.md#5-live-model-result-the-gateway-is-free).
 
+### Every run so far
+
+| selector | native: harmful | guarded: harmful | guarded: repaired to intended |
+|---|---|---|---|
+| Claude Haiku (live) | 0/150 | 0/150 | — (nothing to repair) |
+| Weak selector, last-mention heuristic (live vs local mock) | 60/150 | **0/150** | 45 |
+| Worst-case selector (scripted control) | 120/150 | 60/150 | 45 |
+
+The weak-selector row is the one to read: a model that resolves a slot by
+"whatever was mentioned last" follows **every** injection — and the gateway
+repairs 45 of those into the correct call and fails closed on the other 15.
+Its remaining 15 harmful cases are all `negation`, a selection error the
+boundary does not claim to fix.
+
+You can reproduce that row with no API key at all:
+
+```bash
+python bench/mock_provider.py --port 8099 --mode last-mention &
+python bench/run_bench.py live --base-url http://127.0.0.1:8099/v1 \
+    --api-key none --model mock --label "weak selector"
+```
+
 Run it against your own model — any OpenAI-compatible endpoint:
 
 ```bash
@@ -112,9 +134,18 @@ python bench/run_bench.py live --base-url https://api.x.ai/v1 \
 python bench/make_charts.py
 ```
 
-Or offline: `export` the prompts, answer them with any model or CLI, then
-`score`. Ready-made runners for Grok, GPT-5.6 Luna/Terra, OpenRouter and local
-servers are in [`providers/`](providers/).
+Or run every provider whose key is in your environment (or a local `.env`) in
+one step:
+
+```bash
+export XAI_API_KEY=...        # Grok
+export OPENAI_API_KEY=...     # GPT-5.6 Luna / Terra
+./providers/run_all.sh        # runs what it can, then regenerates the charts
+```
+
+There is also an offline path: `export` the prompts, answer them with any model
+or CLI (including `grok.exe` on Windows), then `score` the JSONL. Individual
+runners live in [`providers/`](providers/).
 
 ## Results from the paper
 
@@ -153,7 +184,7 @@ paper's §8.
 |---|---|
 | `evibind/` | product surface: gateway, policy, schema lint, CLI (`evibind serve`) |
 | `tapbench/` | the underlying engine: compiler, materializer, certificates, fuzzer, suites |
-| `bench/` | InjectBench: the 150-case benchmark used above |
+| `bench/` | InjectBench: 150 cases, plus a mock provider for key-free runs |
 | `providers/` | one-command runners: OpenRouter, xAI/Grok, GPT-5.6, local models |
 | `examples/` | offline minimal binding, guarded host execution, annotated request |
 | `docs/` | findings, public API, reproducibility, upstream research README |
