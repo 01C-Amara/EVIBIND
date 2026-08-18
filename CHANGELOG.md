@@ -74,6 +74,13 @@ All notable EviBind changes are documented here.
   neutralised.
 - Cleared every `ruff` finding in the repo (16, all dead imports or unused
   locals).
+- Fixed a ~5% flake in
+  `test_gateway_rejects_upstream_redirect_without_forwarding_key`. Two test
+  upstreams replied without consuming the request body, and an unread body can
+  surface as a connection reset instead of the response — so the gateway
+  reported "could not reach upstream" rather than the redirect refusal the test
+  asserts. A flaky security test is worse than none: it teaches people to
+  re-run until green. 30 consecutive runs clean.
 - End-to-end result: GPT-5.4 nano through `evibind serve` against live OpenAI
   goes from 0/150 correct, 15 malformed to **88/150 correct, 0 harmful, 0
   malformed**, with 58 of 60 origin violations completing.

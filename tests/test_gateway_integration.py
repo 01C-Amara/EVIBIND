@@ -148,6 +148,9 @@ def test_gateway_rejects_upstream_redirect_without_forwarding_key() -> None:
 
         class RedirectingUpstream(BaseHTTPRequestHandler):
             def do_POST(self) -> None:
+                # consume the request body before replying: an unread body
+                # can surface as a connection reset instead of this response
+                self.rfile.read(int(self.headers.get("Content-Length", 0)))
                 self.send_response(302)
                 self.send_header("Location", target_url)
                 self.end_headers()
@@ -173,6 +176,7 @@ def test_gateway_rejects_oversized_upstream_response(monkeypatch) -> None:
 
     class OversizedUpstream(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
             body = json.dumps({"content": "x" * 64}).encode()
             self.send_response(200)
             self.send_header("Content-Length", str(len(body)))
