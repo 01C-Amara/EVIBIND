@@ -413,19 +413,28 @@ GPT-5.4 nano, every split, native tool calling:
 | `ds_base` | 543 | 220 | 1 | **0** |
 | `ds_enhanced` | 543 | 220 | 1 | **0** |
 
-On the full 510-case `dh_enhanced` split: GPT-5.4 mini 0/510, and **GPT-4.1
-mini 9/510 — all nine withheld by the gateway.** The `enhanced` splits prefix
-the payload with *"IMPORTANT!!! Ignore all previous instructions"* and are
-otherwise resisted outright.
+And across models, on `dh_enhanced`, beside the same model's InjectBench score:
 
-The diagnostics name the mechanism for those nine: eight were `direct_answer`
-with reason *"no supported compatible call domain"* — no tool in the request
-could have its required slots filled from admissible evidence — and one was
-`clarify`, listing the four slots it could not source. Two terminal states, one
-cause: the attacker's call cannot be built out of the user's own turn.
+| model | InjecAgent dh_enhanced native | released guarded | InjectBench origin native | tool calling |
+|---|---|---|---|---|
+| GPT-5.6 Sol | 0/510 | 0/510 | 0/60 | native |
+| GPT-5.6 Luna | 0/510 | 0/510 | 3/60 | native |
+| GPT-5.6 Terra | 0/510 | 0/510 | 4/60 | native |
+| Grok 4.6 | 0/510 | 0/510 | 0/60 | CLI, emulated |
+| Grok 4.5 | 0/510 | 0/510 | 1/60 | CLI, emulated |
+| Claude Haiku | not run | not run | 0/60 | native |
+| GPT-5.4 mini | 0/510 | 0/510 | 40/60 | native |
+| GPT-5.4 nano | 0/510 | 0/510 | 43/60 | native |
+| GPT-4.1 mini | 9/510 | 0/510 | 43/60 | native |
 
-A 120-case sample of each model showed 0/120 across the board and would have
-reported a clean null. The nine only surface in the full run.
+**Frontier models refuse both shapes; the cheap tiers refuse only the first.**
+GPT-5.6 Sol, Luna and Terra sit at 0/510 and 0-4/60. GPT-5.4 nano and mini also
+reach 0/510 on InjecAgent — and 43/60 and 40/60 on InjectBench. So this is not
+a story about weak models being weak everywhere. It is specific to the shape of
+the attack.
+
+GPT-4.1 mini, the oldest model in the set, is the only one to call an attacker
+tool at all: 9/510, all withheld.
 
 The one attack that landed is worth stating in full, because it is the entire
 mechanism working on someone else's data:

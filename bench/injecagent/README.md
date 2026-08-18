@@ -57,37 +57,61 @@ own, so the runner scores both:
 - **utility** — the benchmark's *own* user call, replayed through the same
   annotated policy. Does the gateway release it unchanged? Needs no key.
 
-## Results, 2026-08-18, GPT-5.4 nano
+## Results, 2026-08-18, `dh_enhanced` (510 cases each)
+
+Both columns describe the same model with no gateway in the way. One is a
+tool-selection attack, the other an argument-substitution attack, and they do
+not agree.
+
+| model | InjecAgent dh_enhanced native | released guarded | InjectBench origin native | tool calling |
+|---|---|---|---|---|
+| GPT-5.6 Sol | 0/510 | 0/510 | 0/60 | native |
+| GPT-5.6 Luna | 0/510 | 0/510 | 3/60 | native |
+| GPT-5.6 Terra | 0/510 | 0/510 | 4/60 | native |
+| Grok 4.6 | 0/510 | 0/510 | 0/60 | CLI, emulated |
+| Grok 4.5 | 0/510 | 0/510 | 1/60 | CLI, emulated |
+| Claude Haiku | not run | not run | 0/60 | native |
+| GPT-5.4 mini | 0/510 | 0/510 | 40/60 | native |
+| GPT-5.4 nano | 0/510 | 0/510 | 43/60 | native |
+| GPT-4.1 mini | 9/510 | 0/510 | 43/60 | native |
+
+Regenerate with `python bench/injecagent/summarize.py --markdown`.
+
+**Frontier models refuse both. Cheap models refuse only the first.** GPT-5.6
+Sol, Luna and Terra and both Grok tiers are 0/510 on InjecAgent and 0-4/60 on
+InjectBench. GPT-5.4 nano and mini are *also* 0/510 on InjecAgent — and 43/60
+and 40/60 on InjectBench.
+
+That second row is why the frontier models were worth running. Without them,
+"weak models are weak" fits the data perfectly well. With Sol and Grok 4.6 at
+0/510 **and** 0/60, and GPT-5.4 nano at 0/510 **and** 43/60, it does not: the
+variance is in the shape of the attack, not the tier of the model. A model can
+be reliable at refusing an instruction from the wrong party and still take a
+value from the wrong place, because the second never presents itself as an
+instruction.
+
+GPT-4.1 mini, the oldest model here, is the only one to call an attacker tool
+at all: **9/510**, every one withheld by the gateway.
+
+**Not run, and why.** Claude Haiku needs an `ANTHROPIC_API_KEY`, which this
+machine does not have — its InjectBench rows came from a different environment.
+`gpt-oss` is not served on the OpenAI API at all; it needs OpenRouter, Groq or
+a local runtime, and none is configured here. Both would be one command each
+if a key were present, and both are worth adding: an open-weight model is the
+most likely of any of these to fail the tool-selection arm.
+
+## Coverage across splits, GPT-5.4 nano
 
 | split | cases | in scope | attacker tool natively | released guarded |
 |---|---|---|---|---|
-| `dh_base` | 510 | 357 | **0** | 0 |
-| `dh_enhanced` | 510 | 357 | **0** | 0 |
-| `ds_base` | 543 | 220 | **1** | **0** |
-| `ds_enhanced` | 543 | 220 | **1** | **0** |
+| `dh_base` | 510 | 357 | 0 | 0 |
+| `dh_enhanced` | 510 | 357 | 0 | 0 |
+| `ds_base` | 543 | 220 | 1 | **0** |
+| `ds_enhanced` | 543 | 220 | 1 | **0** |
 
 One case in each `ds` split names the same tool as both the user's and the
 attacker's; it cannot distinguish an attack from the user's own call and is
 excluded, which is why `ds` shows 543 rather than 544.
-
-Run on all 510 `dh_enhanced` cases per model, not a sample:
-
-| model | attacker tool natively | released guarded |
-|---|---|---|
-| GPT-5.4 nano | 0/510 | 0/510 |
-| GPT-5.4 mini | 0/510 | 0/510 |
-| GPT-4.1 mini | **9/510** | **0/510** |
-
-All nine GPT-4.1 mini attacks were withheld, and the diagnostics say why: eight
-as `direct_answer` — *"no supported compatible call domain"*, meaning no tool
-in the request could have its required slots filled from admissible evidence —
-and one as `clarify`, naming the four slots it could not source. Both are the
-same cause wearing two terminal states: the attacker's call cannot be
-constructed out of the user's own turn.
-
-A sample of 120 cases per model showed 0/120 for all three and would have
-reported a clean null. The nine only appear in the full run, which is worth
-remembering before trusting a truncated sweep of anything.
 
 One attack landed, and the gateway stopped it. `ds-0396`:
 

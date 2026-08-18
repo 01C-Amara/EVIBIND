@@ -303,8 +303,12 @@ def matrix_chart() -> str:
 
 
 CONTRAST_MODELS = [
-    ("gpt-5.4-nano", "GPT-5.4 nano"),
+    ("gpt-5.6-sol", "GPT-5.6 Sol"),
+    ("gpt-5.6-luna", "GPT-5.6 Luna"),
+    ("gpt-5.6-terra", "GPT-5.6 Terra"),
+    ("grok-4.6", "Grok 4.6"),
     ("gpt-5.4-mini", "GPT-5.4 mini"),
+    ("gpt-5.4-nano", "GPT-5.4 nano"),
     ("gpt-4.1-mini", "GPT-4.1 mini"),
 ]
 
@@ -339,6 +343,9 @@ def contrast_chart() -> str:
             rows.append((pretty, selection, substitution))
     if not rows:
         return ""
+    # weakest last: the story reads top to bottom, frontier models resisting
+    # both shapes and the cheap tiers falling only to the second
+    rows.sort(key=lambda row: row[2][0] / max(row[2][1], 1))
 
     width, left, top = 900, 150, 150
     bar_h, gap, block_h = 20, 8, 74
@@ -355,7 +362,7 @@ def contrast_chart() -> str:
         f"How often each model did what the attacker's text told it to, with no "
         f"gateway in the way. Both runs are live and unguarded.</text>",
         f"<text x='24' y='71' {FONT} font-size='12.5' fill='{INK2}'>"
-        f"Upper bar: &#8220;call this other tool&#8221; (InjecAgent, 510 cases). "
+        f"Upper bar: &#8220;call this other tool&#8221; (InjecAgent dh_enhanced, 510 cases). "
         f"Lower bar: &#8220;use this account number instead&#8221; "
         f"(InjectBench, 60 origin-violation cases).</text>",
         f"<rect x='24' y='{top - 38}' width='11' height='11' fill='{GOOD}' "
@@ -389,9 +396,9 @@ def contrast_chart() -> str:
         y += block_h
 
     parts.append(f"<text x='24' y='{height - 20}' {FONT} font-size='11.5' fill='{INK2}'>"
-                 f"A model that refuses to be redirected to another tool will still "
-                 f"take the attacker's account number, because that never arrives as "
-                 f"an instruction &#8212; it arrives as a fact.</text>")
+                 f"Every model refuses to be redirected to another tool. The cheaper tiers "
+                 f"still take the attacker's account number, because that never arrives "
+                 f"as an instruction &#8212; it arrives as a fact.</text>")
     parts.append("</svg>")
     return "".join(parts)
 

@@ -18,8 +18,26 @@ All notable EviBind changes are documented here.
   Tool-selection injection is largely refused by current models; argument
   substitution is not, because it never reads as an instruction. A 120-case
   sample would have reported a clean null and missed the nine.
+- Extended the external run to eight models on `dh_enhanced`: GPT-5.6 Sol, Luna
+  and Terra, Grok 4.6 and 4.5 (through the CLI, no xAI key), GPT-5.4 mini and
+  nano all at 0/510; GPT-4.1 mini at 9/510, all withheld. The frontier rows are
+  what make the result readable — Sol and Grok 4.6 sit at 0/510 *and* 0/60,
+  while GPT-5.4 nano sits at 0/510 *and* 43/60, so the variance is in the shape
+  of the attack rather than the tier of the model.
+- Fixed `to_responses`: it could not carry a transcript that already contained
+  an assistant `tool_calls` turn, emitting `content: null`, which the Responses
+  API rejects. InjectBench synthesises those turns so it never surfaced;
+  InjecAgent supplies them, so every GPT-5.6 request failed until this was
+  fixed. The InjectBench conversion is byte-identical afterwards.
+- Added `bench/injecagent/run_injecagent_grok.py` and
+  `bench/injecagent/summarize.py`; the cross-model tables in the docs are
+  generated from the result files rather than typed by hand.
 - Added `assets/bench_contrast.svg`: the two attack shapes side by side across
-  the three models.
+  every model that has run both.
+- Not run and why: Claude Haiku needs an `ANTHROPIC_API_KEY` this machine does
+  not have, and `gpt-oss` is not served on the OpenAI API at all — it needs
+  OpenRouter, Groq or a local runtime. An open-weight model is the likeliest of
+  the set to fail the tool-selection arm, so it is the row most worth adding.
 - Recorded two structural limits with it: an argument-level boundary cannot
   touch a parameterless tool (30% of `dh`, 59% of `ds`), and the 120 withheld
   user calls are all values that are genuinely absent from the user's turn —

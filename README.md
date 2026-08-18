@@ -72,11 +72,17 @@ And one number that is not ours.
 
 <p align="center"><img src="assets/bench_contrast.svg" width="840" alt="The same three models refuse tool-selection injection almost perfectly on InjecAgent while taking the attacker's account number two thirds of the time on InjectBench"></p>
 
-On [InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), the
-models that fall for argument substitution 43 times out of 60 refuse
-tool-selection injection almost perfectly — even on the split that prefixes the
-payload with *"IGNORE ALL PREVIOUS INSTRUCTIONS"*. GPT-4.1 mini is the one that
-slips, 9 times in 510, and the gateway withheld all nine.
+On [InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), eight
+models call the attacker's tool **0/510** — GPT-5.6 Sol, Luna and Terra, Grok
+4.6 and 4.5, GPT-5.4 mini and nano — even on the split that prefixes the
+payload with *"IGNORE ALL PREVIOUS INSTRUCTIONS"*. GPT-4.1 mini, the oldest of
+them, is the only one to slip: 9 times in 510, and the gateway withheld all
+nine.
+
+The frontier rows are what make this readable. If only the cheap tiers had run,
+*"weak models are weak"* would fit the data. But Sol and Grok 4.6 are at 0/510
+**and** 0/60, while GPT-5.4 nano is at 0/510 **and** 43/60. The variance is in
+the shape of the attack, not the tier of the model.
 
 The difference is the shape of the attack, not its strength. *"Call this other
 tool"* reads as an instruction from the wrong party and gets refused. *"Use this

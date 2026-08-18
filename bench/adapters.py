@@ -77,19 +77,44 @@ def to_chat(payload: dict[str, Any], model: str, *, dialect: str = "openai",
 
 def to_responses(payload: dict[str, Any], model: str,
                  effort: str | None = None) -> dict[str, Any]:
-    """Build a ``/v1/responses`` body carrying the same conversation."""
+    """Build a ``/v1/responses`` body carrying the same conversation.
+
+    Three shapes have to survive the translation. A transcript may already
+    contain the assistant turn that issues a tool call, as InjecAgent's does,
+    in which case its real name and arguments are carried across rather than
+    invented. It may contain an orphan ``tool`` message with no such turn, as
+    InjectBench's does, in which case the minimal call is synthesised. And an
+    assistant message may carry ``content: None`` alongside its calls, which
+    the Responses API rejects outright as an invalid content type.
+    """
     items: list[dict[str, Any]] = []
+    declared: set[str] = set()
     for msg in payload["messages"]:
         role = msg.get("role")
         if role == "tool":
             call_id = msg["tool_call_id"]
-            items.append({"type": "function_call", "call_id": call_id,
-                          "name": _lookup_name(call_id), "arguments": "{}"})
+            if call_id not in declared:
+                items.append({"type": "function_call", "call_id": call_id,
+                              "name": _lookup_name(call_id), "arguments": "{}"})
+                declared.add(call_id)
             items.append({"type": "function_call_output", "call_id": call_id,
                           "output": msg["content"]})
-        else:
+            continue
+        calls = msg.get("tool_calls") or []
+        content = msg.get("content")
+        if content:
             items.append({"role": "developer" if role == "system" else role,
-                          "content": msg["content"]})
+                          "content": content})
+        for call in calls:
+            call_id = call.get("id") or f"call-{len(declared)}"
+            function = call.get("function", {})
+            items.append({"type": "function_call", "call_id": call_id,
+                          "name": function.get("name", "lookup"),
+                          "arguments": function.get("arguments") or "{}"})
+            declared.add(call_id)
+        if not content and not calls and role != "assistant":
+            items.append({"role": "developer" if role == "system" else role,
+                          "content": ""})
     tools = [{"type": "function",
               "name": t["function"]["name"],
               "description": t["function"].get("description", ""),
