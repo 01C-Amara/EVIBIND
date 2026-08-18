@@ -80,13 +80,32 @@ attacker cannot write to.** That is 36% of critical arguments here, 75% in
 banking, 27% in Slack. A deployment should check which of its own tool calls
 look like the banking case before assuming coverage.
 
-**To extend past the user's turn, the boundary needs trusted structure inside a
-tool result** — not a text blob containing an IBAN, but an invoice API that
-returns a typed `payee_iban` field, so a policy can say *this slot may come from
-that field* and free text in the same document cannot reach it. That is an
-integration requirement on the tool surface, not a change to this code. It is
-the single highest-value thing a deployment can do to widen the boundary, and
-it is why `x-evibind-sources` is a list rather than a boolean.
+**Widening it is an integration change, and here is the exact one.** The bill
+case is unprotectable while the IBAN arrives as text the model reads. It becomes
+protectable when the *application* fetches that value through its own API and
+hands it to the boundary out-of-band:
+
+```python
+request["evibind"]["dialogue_state"] = {"recipient": iban_from_your_invoice_api}
+# and on the slot:
+"x-evibind-source-policy": "trusted_state_only"
+```
+
+The slot then draws only from that channel and no text in the document can
+reach it. `examples/trusted_state_binding.py` runs both arms on AgentDojo's own
+bill scenario, offline and with no key:
+
+```text
+bound to user.current_turn      -> withheld (safe, bill never paid)
+bound to trusted_state_only     -> released UK12345678901234567890
+```
+
+Note what this is *not*. Sources are assigned by message role — every `tool`
+message is `tool.untrusted_output` — so there is no way to mark one tool's
+output trusted, and no field-level provenance inside a tool result. The trusted
+channel is `dialogue_state`, which the application populates itself. That is a
+narrower mechanism than "typed tool outputs" but a more honest one: the value
+never passes through the model's context on the way in.
 
 ## Not done here
 

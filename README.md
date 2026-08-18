@@ -142,8 +142,9 @@ Mark the slots that matter with `x-evibind-*` annotations in your tool schema
 }
 ```
 
-Two runnable end-to-end examples: `examples/live_gateway_demo.py` (network, a
-real injection, with and without the gateway) and
+Three runnable examples: `examples/live_gateway_demo.py` (network, a real
+injection, with and without the gateway), `examples/trusted_state_binding.py`
+(offline — how to protect a value the user never typed) and
 `examples/minimal_evidence_binding.py` (offline, no key).
 
 ## Where it sits
@@ -351,11 +352,20 @@ values across four suites are ones the user actually wrote — 75% in banking,
 the document and the injection replaces that very block, so the attacked file
 holds only the attacker's. EviBind withholds: safe, and unable to complete.
 
-That is the boundary's stated assumption with a number on it, and it is the
-first thing to check against your own tool surface. It rises the moment tools
-return typed fields instead of text — an invoice API with a `payee_iban` field
-is protectable where a PDF blob is not. Method and the full table:
-[`bench/agentdojo/`](bench/agentdojo/), write-up in
+That is the boundary's stated assumption with a number on it, and the first
+thing to check against your own tool surface. You raise it by having the
+*application* fetch such values itself and pass them out-of-band, rather than
+letting the model read them out of a document:
+
+```python
+request["evibind"]["dialogue_state"] = {"recipient": iban_from_your_invoice_api}
+# on the slot: "x-evibind-source-policy": "trusted_state_only"
+```
+
+`python examples/trusted_state_binding.py` runs both arms on AgentDojo's own
+bill scenario, offline: bound to the user's turn it withholds, bound to trusted
+state it releases the authorised IBAN while the model proposes the attacker's.
+Method and full table: [`bench/agentdojo/`](bench/agentdojo/), write-up in
 [`docs/FINDINGS.md`](docs/FINDINGS.md) §17–18.
 
 **One exposure worth knowing before you deploy.** If a model swaps two

@@ -665,13 +665,27 @@ sort its own tool calls into "the user names the value" and "the value comes
 from a document" before assuming coverage, and the second bucket is where this
 provides confinement but not completion.
 
-**Widening it is an integration problem, not a code problem.** The bill case is
-unprotectable because an IBAN arrives as text inside a document. It becomes
-protectable the moment the invoice tool returns a typed `payee_iban` field, so a
-policy can say *this slot may be derived from that field* and free text in the
-same document cannot reach it. That is why `x-evibind-sources` is a list rather
-than a boolean, and it is the highest-value change available to a deployment —
-higher than anything in this repo's own code.
+**Widening it is an integration change, and the mechanism is `dialogue_state`.**
+The bill case is unprotectable while the IBAN arrives as text the model reads.
+It becomes protectable when the application fetches that value through its own
+API and passes it out-of-band:
+
+```python
+request["evibind"]["dialogue_state"] = {"recipient": iban_from_your_invoice_api}
+# on the slot: "x-evibind-source-policy": "trusted_state_only"
+```
+
+`examples/trusted_state_binding.py` runs both arms on AgentDojo's own bill
+scenario: bound to `user.current_turn` the call is withheld, bound to
+`trusted_state_only` it releases `UK12345678901234567890` while the model was
+proposing the attacker's.
+
+Be precise about what this is not. Evidence sources are assigned by message
+role — every `tool` message is `tool.untrusted_output` — so a deployment cannot
+mark one tool's output trusted, and there is no field-level provenance within a
+tool result. The trusted channel is `dialogue_state`, populated by the
+application. That is narrower than "typed tool outputs" and more honest: the
+value never passes through the model's context on the way in.
 
 Set against the earlier findings, the shape of the answer is now clear:
 
