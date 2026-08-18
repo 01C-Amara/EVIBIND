@@ -68,6 +68,16 @@ Nine live models, 150 cases each, 1,350 scored calls
   from 0/60 to 43/60 across the nine. Behind the gateway every one of them is
   0/60.
 
+And one number that is not ours. On
+[InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), 2,106
+cases, the same models call the attacker's tool **0-1 times per split** — even
+on the split that prefixes the payload with *"IGNORE ALL PREVIOUS
+INSTRUCTIONS"*. The models that fall for argument substitution 43 times out of
+60 refuse tool-selection injection almost perfectly. That gap is the argument
+for an argument-level boundary, and it is why a suite measuring only
+tool-selection attacks reports this problem as solved. Method, caveats and the
+one attack the gateway did stop: [`bench/injecagent/`](bench/injecagent/).
+
 End to end through `evibind serve` against live OpenAI, GPT-5.4 nano now
 completes 88/150 with 0 harmful and 0 malformed releases — up from 0/150 before
 the extraction fixes in [`docs/FINDINGS.md`](docs/FINDINGS.md) §10.
@@ -317,9 +327,12 @@ cue precedes its value; that limit is real and documented.
 0.94s median through the gateway — `+0.25s`, one round trip, no second model
 call.
 
-**Not measured yet.** Annotation burden on a real tool surface, throughput under
-load, and any third-party injection benchmark. InjectBench is self-authored; one
-external number would be worth more than another 150 cases of our own.
+**Not measured yet.** Annotation burden on a real tool surface, and throughput
+under load. The third-party number now exists —
+[`bench/injecagent/`](bench/injecagent/) — and it comes with its own honest
+limit: an argument-level boundary cannot touch a parameterless tool, which is
+30% of InjecAgent's direct-harm cases and 59% of its data-stealing ones. Tool
+-level authorization belongs *alongside* argument binding, not after it.
 
 ## Results from the paper
 
@@ -361,6 +374,7 @@ paper's §8.
 | `evibind/` | product surface: gateway, policy, schema lint, CLI (`evibind serve`) |
 | `tapbench/` | the underlying engine: compiler, materializer, certificates, fuzzer, suites |
 | `bench/` | InjectBench: 150 cases, the mock provider, and both runners |
+| `bench/injecagent/` | the external benchmark: InjecAgent adapted, fetched not vendored |
 | `providers/` | one-command runners: OpenAI, xAI/Grok, OpenRouter, local models |
 | `examples/` | `live_gateway_demo.py` (network) and `minimal_evidence_binding.py` (offline) |
 | `docs/` | start with [`FINDINGS.md`](docs/FINDINGS.md); the rest is paper apparatus |
@@ -368,7 +382,8 @@ paper's §8.
 
 Start here: [`examples/live_gateway_demo.py`](examples/live_gateway_demo.py) to
 see it work, [`docs/FINDINGS.md`](docs/FINDINGS.md) for every result and every
-known defect, [`bench/cases.py`](bench/cases.py) for what is actually tested.
+known defect, [`bench/cases.py`](bench/cases.py) for what is actually tested,
+and [`bench/injecagent/`](bench/injecagent/) for the number that is not ours.
 
 The `docs/` directory also carries the paper's apparatus — preregistrations,
 review panels, human-study protocols. Those are the research record, not

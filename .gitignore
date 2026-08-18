@@ -12,3 +12,4 @@ _stale/
 _to_delete/
 bench/results/chunk*.json
 bench/results/haiku_raw.jsonl
+bench/injecagent/data/

@@ -4,6 +4,25 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- Added an **external benchmark**: `bench/injecagent/` adapts
+  [InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), 2,106
+  cases, under one mechanical annotation rule applied identically to attacker
+  and user tools. `fetch.py` pulls the data into a gitignored directory rather
+  than vendoring it. Two arms are scored — attacker-tool rate and the
+  benchmark's own user calls — because a boundary that withholds everything
+  wins any attack-success table on its own.
+- The external result is a null one, and it is the point: GPT-5.4 nano,
+  GPT-5.4 mini and GPT-4.1 mini call the attacker's tool 0-1 times per split,
+  even on the "IGNORE ALL PREVIOUS INSTRUCTIONS" variant, while the same models
+  bind the attacker's account 40-43 times out of 60 on InjectBench.
+  Tool-selection injection is largely refused by current models; argument
+  substitution is not, because it never reads as an instruction. The one attack
+  that did land was withheld by the gateway.
+- Recorded two structural limits with it: an argument-level boundary cannot
+  touch a parameterless tool (30% of `dh`, 59% of `ds`), and the 120 withheld
+  user calls are all values that are genuinely absent from the user's turn —
+  a statement about the annotation rule, not the engine.
+
 - Ran InjectBench live against nine models: GPT-5.6 Terra/Luna/Sol,
   GPT-5.4 mini/nano, GPT-4.1 mini, and Grok 4.6/4.5. Native harmful bindings
   range from 0/60 to 43/60 across the origin-violation set; behind the gateway
