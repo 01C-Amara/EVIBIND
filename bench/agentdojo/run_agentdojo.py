@@ -39,7 +39,10 @@ try:
         ToolsExecutor,
     )
     from agentdojo.attacks.attack_registry import load_attack
-    from agentdojo.benchmark import benchmark_suite_with_injections
+    from agentdojo.benchmark import (
+        benchmark_suite_with_injections,
+        benchmark_suite_without_injections,
+    )
     from agentdojo.logging import OutputLogger
     from agentdojo.task_suite.load_suites import get_suite
 except ImportError:  # pragma: no cover
@@ -67,7 +70,7 @@ def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None)
 
 def summarise(results) -> dict:
     utility = results["utility_results"]
-    security = results["security_results"]
+    security = results.get("security_results") or {}
     return {
         "cases": len(utility),
         "utility_passed": sum(bool(v) for v in utility.values()),
@@ -84,6 +87,9 @@ def main() -> None:
     parser.add_argument("--user-tasks", nargs="*", default=None)
     parser.add_argument("--injection-tasks", nargs="*", default=None)
     parser.add_argument("--out", default=None)
+    parser.add_argument("--no-injections", action="store_true",
+                        help="clean-utility control: no attack at all, "
+                             "which is where a false rejection would show")
     parser.add_argument("--logdir", default=None,
                         help="AgentDojo writes per-case traces here")
     args = parser.parse_args()
@@ -108,16 +114,30 @@ def main() -> None:
         # AgentDojo's TraceLogger reads logdir off the active logger on the
         # stack, so the run has to happen inside an OutputLogger context.
         with OutputLogger(str(logdir)):
-            results = benchmark_suite_with_injections(
-                pipeline, suite, attack, logdir=logdir, force_rerun=True,
-                user_tasks=args.user_tasks,
-                injection_tasks=args.injection_tasks, verbose=False)
+            if args.no_injections:
+                # this one takes no verbose flag
+                results = benchmark_suite_without_injections(
+                    pipeline, suite, logdir=logdir, force_rerun=True,
+                    user_tasks=args.user_tasks)
+            else:
+                results = benchmark_suite_with_injections(
+                    pipeline, suite, attack, logdir=logdir, force_rerun=True,
+                    user_tasks=args.user_tasks,
+                    injection_tasks=args.injection_tasks, verbose=False)
         summary = summarise(results)
         if guard is not None:
             summary["guard_stats"] = dict(guard.stats)
+        summary["injections"] = not args.no_injections
+        if args.no_injections:
+            # there is no attack in this arm, so the security field is noise
+            summary.pop("attack_succeeded", None)
         report["arms"][arm] = summary
-        print(f"{arm:9s} utility {summary['utility_passed']}/{summary['cases']}   "
-              f"attack succeeded {summary['attack_succeeded']}/{summary['cases']}")
+        line = f"{arm:9s} utility {summary['utility_passed']}/{summary['cases']}"
+        if "attack_succeeded" in summary:
+            line += f"   attack succeeded {summary['attack_succeeded']}/{summary['cases']}"
+        else:
+            line += "   (no injections: clean-utility control)"
+        print(line)
         if guard is not None:
             print(f"          guard: {guard.stats}")
 

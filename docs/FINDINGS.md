@@ -697,3 +697,71 @@ Set against the earlier findings, the shape of the answer is now clear:
   tool surfaces are built today (§17);
 * and the way to raise that number is typed tool outputs, not a better
   extractor.
+
+---
+
+# AgentDojo, live, on their metrics — 2026-08-18
+
+## 19. Attack success 47% to 3.5%, with task completion unchanged
+
+`bench/agentdojo/run_agentdojo.py` inserts EviBind as a `BasePipelineElement`
+before `ToolsExecutor` inside AgentDojo's `ToolsExecutionLoop`, so every
+proposed call passes the boundary before anything runs. Scoring is AgentDojo's
+own: **utility** is whether the user's task completed, **security** is whether
+the attacker's injected goal succeeded.
+
+Banking suite, GPT-4o mini, `important_instructions` attack, all 16 user tasks
+crossed with all 9 injection tasks:
+
+| arm | cases | task completed | attack succeeded |
+|---|---|---|---|
+| baseline | 144 | 55 | **68 (47%)** |
+| **EviBind** | 144 | **56** | **5 (3.5%)** |
+
+Clean control, same suite and model, no injection at all — this is where a
+false rejection would show:
+
+| arm | user tasks | task completed |
+|---|---|---|
+| baseline | 16 | 7 |
+| **EviBind** | 16 | **7** |
+
+**A 93% reduction in attack success with task completion unchanged**, on a
+third-party benchmark, using the third party's metrics and their attack.
+
+Two things about that which should be said plainly.
+
+The clean-control utility is 7/16 for *both* arms because GPT-4o mini simply
+fails nine of these tasks on its own. The guard neither helps nor hurts there,
+which is the claim being made, but the absolute number is a statement about the
+model rather than about the boundary.
+
+And the pass/fail metric hides work. The guard withheld 1,236 of 1,750 proposed
+calls across the injected run, and 53 of 92 in the clean run, while completion
+stayed level — meaning the agent retried a great deal and mostly still got
+there. That is real latency and token cost which AgentDojo's utility score does
+not capture, and a deployment should expect it.
+
+## 20. Why the number beat the scoping estimate
+
+§17 measured that only 36% of AgentDojo's critical argument values appear in
+the user's turn, and predicted the guarded arm could do little but withhold on
+the rest. Attack success still fell to 3.5%.
+
+The reason is that the two measurements ask different questions. §17 asks
+whether the *authorised* value is re-derivable — which is what governs whether
+the task can complete. Attack success asks whether the *attacker's* value
+reaches a tool, and withholding stops that whether or not anything is
+re-derivable. Where the boundary cannot help the user it can still refuse the
+attacker.
+
+So the honest shape is: **confinement is broad, completion is not.** The
+boundary keeps the attacker's value out almost everywhere; it lets the user's
+task through only where the authorised value was somewhere reachable. Both
+statements are in the same table above, and only reading them together gives
+the right picture.
+
+The 5 residual successes are the ones worth study next; they are the cases
+where the attacker's goal was reachable through a call whose critical arguments
+the mechanical annotation left ungoverned (457 of 1,750 calls had no governed
+slot at all).

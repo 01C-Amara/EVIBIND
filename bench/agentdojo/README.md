@@ -107,11 +107,49 @@ channel is `dialogue_state`, which the application populates itself. That is a
 narrower mechanism than "typed tool outputs" but a more honest one: the value
 never passes through the model's context on the way in.
 
-## Not done here
+## The live run
 
-Running AgentDojo's live benchmark with EviBind in the pipeline. Its
-`BasePipelineElement` interface makes the insertion straightforward — a filter
-placed before `ToolsExecutor` inside `ToolsExecutionLoop` — and it would give
-attack-success and utility on their metrics rather than ours. The scoping
-result above bounds what that run can show, though: on the 64% of arguments the
-user never wrote, the guarded arm can only withhold.
+`run_agentdojo.py` inserts EviBind as a `BasePipelineElement` before
+`ToolsExecutor` inside AgentDojo's `ToolsExecutionLoop`, so every proposed call
+crosses the boundary before anything executes. Scoring is theirs.
+
+```bash
+python bench/agentdojo/run_agentdojo.py --suite banking --model gpt-4o-mini-2024-07-18
+python bench/agentdojo/run_agentdojo.py --suite banking --model gpt-4o-mini-2024-07-18 --no-injections
+```
+
+Banking, GPT-4o mini, `important_instructions`, 16 user tasks × 9 injection
+tasks:
+
+| arm | cases | task completed | attack succeeded |
+|---|---|---|---|
+| baseline | 144 | 55 | **68 (47%)** |
+| **EviBind** | 144 | **56** | **5 (3.5%)** |
+
+Clean control, no injection — where a false rejection would show:
+
+| arm | user tasks | task completed |
+|---|---|---|
+| baseline | 16 | 7 |
+| **EviBind** | 16 | **7** |
+
+**Attack success down 93%, task completion unchanged.**
+
+Two caveats belong with it. 7/16 on the clean control is GPT-4o mini failing
+nine of these tasks unaided — the guard neither helps nor hurts, which is the
+claim, but the absolute number describes the model. And pass/fail hides work:
+1,236 of 1,750 proposed calls were withheld across the injected run while
+completion held level, so the agent retried heavily. That is latency and token
+cost AgentDojo's score does not measure.
+
+### Why this beat the scoping estimate
+
+The 36% above predicted the guarded arm could do little but withhold. Attack
+success still fell to 3.5%, because the two measurements ask different
+questions. The scope number asks whether the *authorised* value is
+re-derivable, which governs whether the task completes. Attack success asks
+whether the *attacker's* value reaches a tool, and withholding stops that
+whether or not anything is re-derivable.
+
+**Confinement is broad; completion is not.** Both statements are in the same
+tables, and only reading them together gives the right picture.

@@ -68,7 +68,21 @@ Nine live models, 150 cases each, 1,350 scored calls
   from 0/60 to 43/60 across the nine. Behind the gateway every one of them is
   0/60.
 
-And one number that is not ours.
+And two numbers that are not ours. On
+[AgentDojo](https://github.com/ethz-spylab/agentdojo)'s banking suite (ETH SPY
+Lab, MIT), scored on **their** utility and security metrics with **their**
+attack, EviBind inserted into **their** agent loop:
+
+| arm | cases | task completed | attack succeeded |
+|---|---|---|---|
+| baseline | 144 | 55 | **68 (47%)** |
+| **EviBind** | 144 | **56** | **5 (3.5%)** |
+
+With no injection at all — the control where a false rejection would show —
+both arms complete 7 of 16 user tasks. **Attack success down 93%, task
+completion unchanged.** Reproduce with
+[`bench/agentdojo/run_agentdojo.py`](bench/agentdojo/).
+
 
 <p align="center"><img src="assets/bench_contrast.svg" width="840" alt="The same three models refuse tool-selection injection almost perfectly on InjecAgent while taking the attacker's account number two thirds of the time on InjectBench"></p>
 

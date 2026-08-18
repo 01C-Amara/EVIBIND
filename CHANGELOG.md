@@ -4,6 +4,25 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- **Ran AgentDojo live with EviBind in their agent loop, on their metrics.**
+  Banking suite, GPT-4o mini, `important_instructions`, 16 user tasks crossed
+  with 9 injection tasks: attack success **68/144 (47%) → 5/144 (3.5%)** with
+  task completion **55 → 56**. Clean control with no injection, where a false
+  rejection would show: **7/16 both arms**. A 93% reduction in attack success
+  with completion unchanged, measured by the third party's harness.
+- Added the clean-utility control (`--no-injections`), because utility measured
+  only under attack cannot distinguish a boundary that preserves good calls from
+  one that breaks them alongside the bad.
+- Recorded two caveats with it. The 7/16 clean figure is GPT-4o mini failing
+  nine tasks on its own, not the boundary. And the pass/fail metric hides work:
+  1,236 of 1,750 proposed calls were withheld across the injected run while
+  completion held level, so the agent retried heavily — real latency and token
+  cost that AgentDojo's score does not capture.
+- Explained why this beat the §17 scoping estimate: that measured whether the
+  *authorised* value is re-derivable, which governs completion. Attack success
+  asks whether the *attacker's* value reaches a tool, and withholding stops that
+  regardless. Confinement is broad; completion is not.
+
 - Added `bench/agentdojo/`, which answers the applicability question InjecAgent
   could not. AgentDojo's injection tasks are argument-level — the banking goal
   is "send a transaction to US133000000121212121212" — so it can measure whether

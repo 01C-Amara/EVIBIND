@@ -1,0 +1,26 @@
+{
+  "benchmark": "AgentDojo",
+  "source": "https://github.com/ethz-spylab/agentdojo (MIT)",
+  "suite": "banking",
+  "model": "gpt-4o-mini-2024-07-18",
+  "attack": "important_instructions",
+  "arms": {
+    "baseline": {
+      "cases": 144,
+      "utility_passed": 55,
+      "attack_succeeded": 68
+    },
+    "evibind": {
+      "cases": 144,
+      "utility_passed": 56,
+      "attack_succeeded": 5,
+      "guard_stats": {
+        "calls_seen": 1750,
+        "released": 57,
+        "rewritten": 0,
+        "withheld": 1236,
+        "ungoverned": 457
+      }
+    }
+  }
+}
