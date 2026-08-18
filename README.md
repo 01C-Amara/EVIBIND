@@ -342,6 +342,22 @@ cue precedes its value; that limit is real and documented.
 0.94s median through the gateway — `+0.25s`, one round trip, no second model
 call.
 
+**How much of a real agent this covers: about a third.** On
+[AgentDojo](https://github.com/ethz-spylab/agentdojo) (ETH SPY Lab, MIT), whose
+injection tasks are argument-level, only **43 of 119** action-critical argument
+values across four suites are ones the user actually wrote — 75% in banking,
+27% in Slack. The rest arrive the same way the attack does. Its flagship case is
+*"pay the bill 'bill-december-2023.txt'"*, where the authorised IBAN is inside
+the document and the injection replaces that very block, so the attacked file
+holds only the attacker's. EviBind withholds: safe, and unable to complete.
+
+That is the boundary's stated assumption with a number on it, and it is the
+first thing to check against your own tool surface. It rises the moment tools
+return typed fields instead of text — an invoice API with a `payee_iban` field
+is protectable where a PDF blob is not. Method and the full table:
+[`bench/agentdojo/`](bench/agentdojo/), write-up in
+[`docs/FINDINGS.md`](docs/FINDINGS.md) §17–18.
+
 **One exposure worth knowing before you deploy.** If a model swaps two
 same-typed critical slots — `from_account` and `to_account` — the boundary
 releases it. Both values are the user's own spans, so confinement has no
@@ -422,7 +438,8 @@ paper's §8.
 | `evibind/` | product surface: gateway, policy, schema lint, CLI (`evibind serve`) |
 | `tapbench/` | the underlying engine: compiler, materializer, certificates, fuzzer, suites |
 | `bench/` | InjectBench: 150 cases, the mock provider, and both runners |
-| `bench/injecagent/` | the external benchmark: InjecAgent adapted, fetched not vendored |
+| `bench/injecagent/` | external benchmark: InjecAgent adapted, fetched not vendored |
+| `bench/agentdojo/` | external scoping: how much of a real agent this boundary covers |
 | `providers/` | one-command runners: OpenAI, xAI/Grok, OpenRouter, local models |
 | `examples/` | `live_gateway_demo.py` (network) and `minimal_evidence_binding.py` (offline) |
 | `docs/` | start with [`FINDINGS.md`](docs/FINDINGS.md); the rest is paper apparatus |
