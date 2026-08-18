@@ -355,19 +355,41 @@ The research artifact behind this repo froze a 100-case test (ten unseen tool
 families, hashes fixed before any model output) measuring exact critical
 binding with the actual candidate catalog vs. admissible top-1 presentation:
 
-<p align="center"><img src="assets/paper_binding.svg" width="800" alt="Exact critical binding: Qwen3-1.7B 5→89, Qwen3.6-35B 86→100, GPT-OSS-120B 97→100, GPT-5.6-Luna 100→100"></p>
+<p align="center"><img src="assets/paper_binding.svg" width="800" alt="Exact critical binding: Qwen3-1.7B 5 to 89, Qwen3.6-35B 86 to 100, GPT-OSS-120B 97 to 100, GPT-5.6-Luna 100 to 100"></p>
 
-Highlights from the submission (all numbers claim-ledger-bound in
-`paper/claims.yaml` of the evidence bundle):
+From the current submission (*semantic robustness revision*, under review):
 
-- 300 equal-value provenance pairs: value-only checking is 100% complete but
+- **300 equal-value provenance pairs**: value-only checking is 100% complete but
   **0% sound**; derivation-aware checking and EviBind are both 100/100.
-- 30 sandboxed executed-effect scenarios: native literals cause 30/30 harmful
-  effects; EviBind completes 30/30 with zero harm.
-- Single-fault study: all 8 faults in a checker's redundant literal/trace
-  channel are exploitable (240/240); EviBind has no such channel (0/240,
-  fail closed).
-- 1,000,000 release-boundary mutations: zero unsound releases.
+- **30 sandboxed executed-effect scenarios**: native literals cause 30/30
+  harmful effects and complete 0/30 tasks; EviBind completes 30/30 with zero
+  harm. A correctly built trace-materializing cite-and-check matches it.
+- **Single-fault study**: all 8 faults in a checker's redundant literal/trace
+  channel are exploitable (240/240 harmful); EviBind has no such channel
+  (0/240, fail closed).
+- **1,000,000 release-boundary mutations**: zero unsound releases.
+- **Presentation matters as much as the model.** Admissible top-1 moves exact
+  binding from 5/100 to 89/100 for Qwen3-1.7B and 86/100 to 100/100 for
+  Qwen3.6-35B, with no regressions. But a singleton ranker is *positional*: it
+  keeps gold in 100/100 gold-late cases and 0/100 gold-early ones. Retaining
+  the top two candidates restores it.
+- **Six semantic relations, alternatives retained**: Qwen3.6-35B reaches 88.8%
+  exact recall and 86% all-order exactness, GPT-5.6-Luna 97% and 94%. Both are
+  perfect on five of the six relations; **two-slot destination composition is
+  the sole outlier.**
+- **Boundary reliability and task utility decompose.** Across 336 prospective
+  ToolSandbox rows the boundary reduces call exceptions by 0.256 while reducing
+  task similarity by 0.155. Reliable dispatch does not by itself recover
+  end-to-end task progress.
+
+The last two are worth reading against this repo's live runs, because they were
+found again independently here:
+
+| paper | live in this repo |
+|---|---|
+| two-slot destination composition is the sole failing relation | the 15 `cross_slot` cases are the group the serving path cannot resolve, because neither cue precedes its value ([`docs/FINDINGS.md`](docs/FINDINGS.md) §10) |
+| boundary reliability and planner competence are distinct axes | the end-to-end run completes 88/150 with 0 harmful — safe well before it is useful ([Status](#status)) |
+| a singleton ranker is positional; keep the top two | offering only the greedy reading of a span hid the correct value entirely, until both readings were offered (§10) |
 
 ## What it protects — and what it doesn't
 

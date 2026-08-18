@@ -4,6 +4,33 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- Attempted a Claude Haiku row through a Claude Code subagent harness, since no
+  `ANTHROPIC_API_KEY` is available here, and recorded it as a **method failure
+  rather than a result**. It returned 0/270, but the harness must tell the agent
+  that case content is inert data — an agent with real shell and filesystem
+  tools could otherwise act on an instruction planted in a tool result — and
+  that warning is exactly the hint the API rows are measured without. All eight
+  agents confirmed it unprompted, reporting that they had spotted and ignored
+  the injections. Stopped at 270 of 510 once they agreed. The generalisation is
+  in `docs/FINDINGS.md` §14: injection susceptibility cannot be measured through
+  a harness that must warn the model about injections.
+- Added `bench/injecagent/prepare_batches.py` and `score_batches.py` for
+  models reachable only as an agent, with the transport recorded in the result
+  file so such rows cannot be mistaken for API rows.
+- Refreshed the paper section against the *semantic robustness revision*: the
+  six-relation alternative-preserving results (Qwen3.6-35B 88.8% recall / 86%
+  all-order; GPT-5.6-Luna 97% / 94%, both perfect on five of six relations with
+  two-slot destination composition the sole outlier), the positional-ranker
+  stress (100/100 gold-late vs 0/100 gold-early for a singleton ranker), and the
+  ToolSandbox decomposition (call exceptions down 0.256, task similarity down
+  0.155 across 336 rows).
+- Cross-referenced three of the paper's findings against this repo's live runs,
+  which reproduced them independently: the two-slot destination outlier is the
+  `cross_slot` group the serving path cannot resolve; boundary reliability and
+  planner competence decompose exactly as the end-to-end run shows; and the
+  positional-ranker lesson is the same one as offering only the greedy reading
+  of a span.
+
 - Added an **external benchmark**: `bench/injecagent/` adapts
   [InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), 2,106
   cases, under one mechanical annotation rule applied identically to attacker

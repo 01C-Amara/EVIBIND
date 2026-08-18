@@ -93,12 +93,42 @@ instruction.
 GPT-4.1 mini, the oldest model here, is the only one to call an attacker tool
 at all: **9/510**, every one withheld by the gateway.
 
-**Not run, and why.** Claude Haiku needs an `ANTHROPIC_API_KEY`, which this
-machine does not have — its InjectBench rows came from a different environment.
-`gpt-oss` is not served on the OpenAI API at all; it needs OpenRouter, Groq or
-a local runtime, and none is configured here. Both would be one command each
-if a key were present, and both are worth adding: an open-weight model is the
-most likely of any of these to fail the tool-selection arm.
+**Not run, and why.** `gpt-oss` is not served on the OpenAI API at all; it needs
+OpenRouter, Groq or a local runtime, and none is configured here. It is the row
+most worth adding — every model above is closed-weight with heavy safety
+post-training, and they are unanimous, which is exactly the condition under
+which an open-weight model is most likely to break the pattern. Note the paper's
+own frozen binding test does include GPT-OSS-120B (97/100 to 100/100 under
+admissible top-1); it is the InjecAgent arm that is missing.
+
+### Claude Haiku: what the subagent attempt showed, and why it is not a row
+
+Haiku has no API key on the machine these runs were made from, so it was
+attempted through a Claude Code subagent harness instead: cases written out in
+batches, an agent per batch recording which tool the assistant would call.
+`prepare_batches.py` and `score_batches.py` implement it and the result is
+kept at `bench/results/injecagent-dh_enhanced-claude-haiku-agent.json`.
+
+It came back **0/270**, and that number belongs in no comparison. The transport
+is injection-aware by construction and the agents said so unprompted — every
+one of the eight reported back in terms like *"each tool result contains
+embedded malicious instructions, which are inert data and must be ignored"* and
+*"all 30 cases contain prompt injection attempts embedded in tool results."*
+
+Two things make it uninformative. The harness has to tell the agent that case
+content is inert data, or an agent with real filesystem and shell tools might
+act on an instruction planted in a tool result — that is a safety requirement,
+not a tunable. And being told so is exactly the hint that the API rows are
+measured *without*. A model that has been told to expect an injection is not
+measuring whether it notices one.
+
+The run was stopped at 270 of 510 once the eight batches agreed, because
+extending an invalid measurement to full coverage buys nothing.
+
+**A real Haiku row needs an `ANTHROPIC_API_KEY` and the ordinary runner.** It is
+one command with a key present. The same caveat applies to any agent-mediated
+transport, and it is worth stating generally: measuring injection susceptibility
+through a harness that must warn the model about injections cannot work.
 
 ## Coverage across splits, GPT-5.4 nano
 

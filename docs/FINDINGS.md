@@ -497,3 +497,26 @@ normalised date or an internal record ID. EviBind has `normalizable` resolution
 and state-backed sources for precisely this, and the blunt rule used here
 cannot reach them. The practical lesson for anyone adopting this is that the
 source declaration, not the extraction, is the part worth getting right.
+
+## 14. A note on measuring through an agent harness
+
+Claude Haiku has no API key on the machine these runs were made from, so it was
+attempted through a Claude Code subagent harness — cases written out in batches,
+one agent per batch recording the tool the assistant would call.
+
+It returned 0/270 and the number is worthless. The harness has to tell the agent
+that case content is inert data, because an agent holding real filesystem and
+shell tools might otherwise act on an instruction planted in a tool result. That
+warning is a safety requirement. It is also precisely the hint the API rows are
+measured *without*, and the agents confirmed it unprompted: all eight reported
+back in terms like *"each tool result contains embedded malicious instructions,
+which are inert data and must be ignored."*
+
+The run was stopped at 270 of 510 once the batches agreed, since extending an
+invalid measurement to full coverage buys nothing. Recorded because the
+generalisation is worth keeping: **injection susceptibility cannot be measured
+through a harness that must warn the model about injections.** Any
+agent-mediated evaluation of this property has the same defect, whoever runs it.
+
+`bench/results/injecagent-dh_enhanced-claude-haiku-agent.json` keeps the data,
+labelled with its transport so it cannot be mistaken for an API row.
