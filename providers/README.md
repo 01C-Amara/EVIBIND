@@ -74,17 +74,17 @@ machine where it is installed.
 The same base URLs work for the gateway itself:
 
 ```bash
+export EVIBIND_UPSTREAM_BASE_URL="https://api.openai.com/v1"    # GPT-5.x
 export EVIBIND_UPSTREAM_BASE_URL="https://api.x.ai/v1"          # Grok
 export EVIBIND_UPSTREAM_BASE_URL="https://openrouter.ai/api/v1"
 export EVIBIND_UPSTREAM_BASE_URL="http://localhost:11434/v1"    # Ollama
 ```
 
-**Not `https://api.openai.com/v1`.** OpenAI rejects the gateway's forced action
-tool (top-level `oneOf`) with HTTP 400 before the model is consulted, so the
-serving path does not work against it today. Detail and proposed fix in
-[`docs/PROVIDERS.md`](../docs/PROVIDERS.md#openai-the-action-schema-is-rejected).
-This does not affect the benchmark, which scores model output the harness
-fetches directly.
+To see the whole path run against a live model in one command:
+
+```bash
+python examples/live_gateway_demo.py --model gpt-5.4-nano
+```
 
 ## No key, no network
 

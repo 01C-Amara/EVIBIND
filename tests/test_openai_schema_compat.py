@@ -1,4 +1,4 @@
-"""Pin the OpenAI function-schema constraint the action tool currently violates.
+"""Keep the action tool's schema inside OpenAI's function-schema rules.
 
 OpenAI rejects a function whose ``parameters`` carry ``oneOf`` / ``anyOf`` /
 ``allOf`` / ``enum`` / ``const`` / ``not`` at the top level:
@@ -7,35 +7,24 @@ OpenAI rejects a function whose ``parameters`` carry ``oneOf`` / ``anyOf`` /
     'object' and not have 'oneOf'/'anyOf'/'allOf'/'enum'/'const'/'not' at the
     top level.  (HTTP 400, code invalid_function_parameters)
 
-``_indexed_action_schema`` returns ``{"type": "object", "oneOf": [...]}``, so
-the serving path in ``tapbench.one_call_gateway`` cannot reach api.openai.com at
-all — every request 400s before the model is consulted. Reproduced live on
-2026-08-18 against ``gpt-5.4-nano`` with ``EVIBIND_UPSTREAM_BASE_URL`` set to
-``https://api.openai.com/v1``.
-
-Note this constrains the *gateway* only. InjectBench scores
-``protect_chat_completion`` against a model response that the harness fetches
-itself, so the benchmark results are unaffected.
-
-The fix is to move the branch union off the top level -- e.g. a single required
-``action`` property holding the ``oneOf`` -- and to unwrap it in
-``_parse_action_proposal``. That changes the wire contract with the model and
-touches the schemas asserted across the suite, so it is deliberately not done
-here. This test is the tripwire: it is ``strict``, so once the schema is fixed
-it XPASSes and fails until the marker is removed.
+The action schema used to return ``{"type": "object", "oneOf": [...]}``, so
+``evibind serve`` could not reach api.openai.com at all — every request 400'd
+before the model was consulted. The union now sits under a single required
+``action`` property, which keeps every branch constraint while satisfying the
+rule. These tests stop that from regressing.
 """
 
 from __future__ import annotations
 
-import pytest
-
-from tapbench.one_call_gateway import _indexed_action_schema
+from tapbench.one_call_gateway import (
+    ACTION_ENVELOPE_KEY,
+    _indexed_action_schema,
+    action_branches,
+)
 
 FORBIDDEN_AT_TOP_LEVEL = ("oneOf", "anyOf", "allOf", "enum", "const", "not")
 
 
-@pytest.mark.xfail(strict=True,
-                   reason="action schema uses a top-level oneOf; OpenAI rejects it")
 def test_action_schema_is_accepted_by_openai_function_rules() -> None:
     schema = _indexed_action_schema()
     assert schema.get("type") == "object"
@@ -44,10 +33,24 @@ def test_action_schema_is_accepted_by_openai_function_rules() -> None:
         f"OpenAI rejects these top-level keywords in function parameters: {offending}")
 
 
+def test_the_union_is_reachable_and_required() -> None:
+    schema = _indexed_action_schema()
+    assert schema["required"] == [ACTION_ENVELOPE_KEY]
+    assert schema["additionalProperties"] is False
+    assert "oneOf" in schema["properties"][ACTION_ENVELOPE_KEY]
+
+
 def test_action_schema_branches_are_still_well_formed() -> None:
     """Whatever the envelope, the three branches must stay intact."""
-    schema = _indexed_action_schema()
-    branches = schema.get("oneOf") or schema.get("properties", {}).get(
-        "action", {}).get("oneOf", [])
-    modes = {b["properties"]["mode"]["const"] for b in branches}
+    branches = action_branches(_indexed_action_schema())
+    modes = {branch["properties"]["mode"]["const"] for branch in branches}
     assert modes == {"call", "need_input", "no_tool"}
+    for branch in branches:
+        assert branch["additionalProperties"] is False
+        assert "mode" in branch["required"]
+
+
+def test_action_branches_reads_the_flat_form_too() -> None:
+    """Certificates recorded before the envelope must still be readable."""
+    flat = {"type": "object", "oneOf": [{"properties": {"mode": {"const": "no_tool"}}}]}
+    assert len(action_branches(flat)) == 1

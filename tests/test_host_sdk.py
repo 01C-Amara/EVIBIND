@@ -11,6 +11,7 @@ from evibind.host import (
     GuardedToolExecutor,
     HostSDKError,
 )
+from tapbench.one_call_gateway import action_branches
 
 
 SECRET = b"host-sdk-test-secret-material-32-bytes"
@@ -72,7 +73,7 @@ def _request(*, include_fee: bool = False) -> dict[str, Any]:
 
 
 def _call_branch(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    branches = payload["tools"][0]["function"]["parameters"]["oneOf"]
+    branches = action_branches(payload["tools"][0]["function"]["parameters"])
     return next(
         branch
         for branch in branches

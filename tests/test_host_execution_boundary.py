@@ -10,6 +10,7 @@ from evibind.host import (
     HostSDKError,
     ToolDispatchError,
 )
+from tapbench.one_call_gateway import action_branches
 
 
 SECRET = b"host-boundary-test-secret-material-32"
@@ -33,9 +34,9 @@ def _action_payload(
 ) -> dict[str, Any]:
     branch = next(
         item
-        for item in provider_payload["tools"][0]["function"]["parameters"][
-            "oneOf"
-        ]
+        for item in action_branches(
+            provider_payload["tools"][0]["function"]["parameters"]
+        )
         if item["properties"]["mode"].get("const") == "call"
     )
     properties = branch["properties"]["bindings"]["properties"]

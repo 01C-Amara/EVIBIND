@@ -6,8 +6,8 @@ EviBind requires one non-streaming OpenAI Chat Completions endpoint:
 POST <base_url>/v1/chat/completions
 ```
 
-The upstream must accept a forced OpenAI function tool whose JSON Schema uses
-`oneOf`, `const`, closed objects, and candidate-ID enums, then return one
+The upstream must accept a forced OpenAI function tool whose JSON Schema uses a
+nested `oneOf`, `const`, closed objects, and candidate-ID enums, then return one
 assistant `message.tool_calls` choice with JSON object arguments encoded as a
 string. EviBind sends only the internal `evibind_action` tool—not the executable
 application tools—sets `n=1` and `parallel_tool_calls=false`, prepends the
@@ -15,12 +15,18 @@ candidate catalog as a system instruction, and leaves unrelated provider request
 fields untouched. Providers that ignore forced tool choice or cannot serialize
 this schema are not compatible with the v2 full-guarantee path.
 
+The branch union is nested under a single required `action` property rather than
+sitting at the top level of `parameters`, because OpenAI rejects
+`oneOf`/`anyOf`/`allOf`/`enum`/`const`/`not` there. Read the branches with
+`tapbench.one_call_gateway.action_branches()` rather than indexing `oneOf`
+directly; it accepts both the nested and the historical flat form.
+
 ## Compatibility Status
 
 | Upstream | Transport | Validation status |
 |---|---|---|
 | llama.cpp | `/v1/chat/completions` | Live local conformance and benchmark queue |
-| OpenAI | Chat Completions | **Incompatible — live credentials, 2026-08-18.** Rejects the action schema; see below |
+| OpenAI | Chat Completions | Live credentials, 2026-08-18: 150/150 requests served end to end |
 | vLLM | OpenAI-compatible server | Protocol fixture; live server not installed in this environment |
 | SGLang | OpenAI-compatible server | Protocol fixture; live server not installed in this environment |
 
@@ -28,11 +34,11 @@ Protocol compatibility is not an accuracy result. Model weights, chat templates,
 reasoning settings, and tool parsers can materially change which handles are
 proposed before EviBind certifies them.
 
-### OpenAI: the action schema is rejected
+### OpenAI: how the action schema was fixed
 
-The row above was previously recorded as a protocol fixture because live
-credentials were never exercised. They now have been, and OpenAI rejects the
-forced action tool before the model is ever consulted:
+The row above was recorded as a protocol fixture for a long time because live
+credentials were never exercised. When they were, OpenAI rejected the forced
+action tool before the model was ever consulted:
 
 ```text
 HTTP 400  invalid_function_parameters
@@ -40,28 +46,29 @@ Invalid schema for function 'evibind_action': schema must have type 'object'
 and not have 'oneOf'/'anyOf'/'allOf'/'enum'/'const'/'not' at the top level.
 ```
 
-`_indexed_action_schema()` returns `{"type": "object", "oneOf": [...]}`, which
-the requirement at the top of this document explicitly assumes an upstream will
-accept. OpenAI does not. Every request through `evibind serve` against
-`https://api.openai.com/v1` fails this way, so the v2 full-guarantee path does
-not currently work with OpenAI as an upstream.
+`_indexed_action_schema()` returned `{"type": "object", "oneOf": [...]}`, so
+every request through `evibind serve` against `https://api.openai.com/v1`
+failed this way. The union now sits under one required `action` property, which
+keeps each branch's constraints — one mode, one required field set — while
+satisfying the rule. Both proposal parsers accept either shape, so certificates
+recorded against the flat form still replay.
+`tests/test_openai_schema_compat.py` keeps it from regressing.
 
-The fix is to move the branch union off the top level — a single required
-`action` property holding the `oneOf` — and to unwrap it in
-`_parse_action_proposal`. That changes the model-facing wire contract and the
-schemas asserted across the suite, so it is tracked rather than applied here:
-`tests/test_openai_schema_compat.py` pins the constraint and fails the moment
-the schema is fixed, as a prompt to update this section.
+Verified after the change: 150/150 InjectBench cases served end to end against
+`gpt-5.4-nano`, and `examples/live_gateway_demo.py` binds the authorised
+account against a live upstream.
 
-Two things made this hard to see, and both are worth fixing regardless: the
-gateway returns `{"message": "upstream returned HTTP 400"}` without the
-upstream's explanation, and it logs nothing about failed upstream calls. The
-error above was only recoverable by putting a logging proxy in between.
+One thing made this hard to diagnose and is still worth fixing: the gateway
+returns `{"message": "upstream returned HTTP 400"}` with the upstream's
+explanation discarded, and logs nothing about failed upstream calls. The error
+above was only recoverable by running a logging proxy in between. Surfacing
+upstream error bodies under `allow_diagnostics` would turn that into one line
+of output.
 
-This limitation is confined to the **serving** path. InjectBench scores
-`protect_chat_completion` against a model response that the harness fetches
-directly, so the benchmark results in the README are unaffected — those were
-produced against live OpenAI models.
+Note that reaching the upstream is not the same as completing a call. The
+serving path currently withholds far more than the offline binding path does,
+for a separate reason — see
+[`FINDINGS.md`](FINDINGS.md) §10.
 
 ## Envelope Adapters
 

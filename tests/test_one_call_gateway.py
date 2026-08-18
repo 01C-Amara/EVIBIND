@@ -5,6 +5,7 @@ import json
 from tapbench.gateway import prepare_upstream_payload
 from tapbench.one_call_gateway import (
     ACTION_TOOL_NAME,
+    action_branches,
     compile_one_call_session,
 )
 from tapbench.verified_ranker import FEATURE_NAMES, LinearCandidateRanker
@@ -390,7 +391,7 @@ def test_missing_candidate_yields_runtime_derived_need_input() -> None:
     schema = session.upstream_payload["tools"][0]["function"]["parameters"]
     assert any(
         branch["properties"]["mode"].get("const") == "need_input"
-        for branch in schema["oneOf"]
+        for branch in action_branches(schema)
     )
 
     protected = session.protect(
@@ -766,6 +767,6 @@ def test_materialized_value_must_satisfy_numeric_schema_constraints() -> None:
 
 def _missing_mode(session) -> str:
     schema = session.upstream_payload["tools"][0]["function"]["parameters"]
-    modes = [branch["properties"]["mode"]["const"] for branch in schema["oneOf"]]
+    modes = [b["properties"]["mode"]["const"] for b in action_branches(schema)]
     assert "call" not in modes
     return modes[0]

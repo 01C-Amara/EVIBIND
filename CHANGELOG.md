@@ -23,11 +23,24 @@ All notable EviBind changes are documented here.
 - Added `bench/summarize_all.py` and `providers/run_openai_suite.sh`.
 - `--api-key` now accepts `file:PATH` and `env:NAME`, so credentials stay off
   command lines and out of shell history.
-- **Found: the gateway cannot use `api.openai.com` as an upstream.** OpenAI
-  rejects the forced action tool's top-level `oneOf` with HTTP 400 before the
-  model is consulted. Documented in `docs/PROVIDERS.md` and pinned by
-  `tests/test_openai_schema_compat.py`; the fix changes the model-facing wire
-  contract and is not applied here.
+- **Fixed: the gateway could not use `api.openai.com` as an upstream at all.**
+  OpenAI rejects a function schema with a top-level `oneOf`, which is what the
+  action tool emitted, so every request 400'd before the model was consulted.
+  The branch union now sits under one required `action` property; both proposal
+  parsers accept either shape, so existing certificates still replay. Read the
+  branches with the new `action_branches()` helper rather than indexing `oneOf`.
+  Verified live: 150/150 cases served end to end against `gpt-5.4-nano`.
+- Added `bench/run_gateway_e2e.py` and `examples/live_gateway_demo.py`, which
+  exercise `evibind serve` itself rather than the offline binding path.
+- **Found: cue-based extraction over-captures by one token**, offering
+  `"ACC-4000 -"` and `"I have"` where `"ACC-4000"` was meant, and appending the
+  next word to long ARNs. Confinement holds — nothing untrusted is released —
+  but the correct value is never offered cleanly, so the serving path completes
+  0/150 intended calls where the offline arm completes 120/150. Pinned by
+  `tests/test_extraction_overcapture.py`, written up in `docs/FINDINGS.md` §10.
+  The fix changes evidence admissibility and is left to a deliberate decision.
+- Measured gateway overhead: `+0.31s` median against `gpt-5.4-nano`
+  (0.67s direct, 0.98s guarded), one round trip, no second model call.
 - Fixed `pytest tests -q`, the command CI runs: sixteen test modules import the
   paper's `scripts` package, which this repo does not ship, so collection failed
   outright. `tests/conftest.py` now skips them when `scripts` is absent.

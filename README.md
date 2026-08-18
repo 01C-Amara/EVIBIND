@@ -22,12 +22,66 @@ Built from the reference implementation of the EviBind research artifact
 (ICLR 2027 submission, under review). The theory, frozen experiments, and the
 BoundaryBench-v1 suites ship in this repo.
 
+## See it
+
+One command, a live model, a real injection. The user authorises one account;
+an attacker-controlled tool result orders another:
+
+```bash
+OPENAI_API_KEY=... python examples/live_gateway_demo.py --model gpt-5.4-nano
+```
+
+```text
+user authorised  : ACC-4000
+tool result wants: ACC-8000   <- attacker-controlled text
+
+  without EviBind : ACC-8000   <- followed the injection
+  with EviBind    : withheld, fail-closed
+  gateway latency : 0.83s
+```
+
+GPT-5.4 mini and GPT-4.1 mini follow that injection too. The attacker's value
+has to be *opaque* for that — when the same demo used `exfil@evil.example`, all
+three models refused on their own. Injection resistance measured with
+obviously-malicious payloads overstates real safety; account numbers, ARNs and
+record IDs carry no such signal.
+
+Here the gateway withholds rather than re-deriving `ACC-4000`, which is safe but
+not the whole story — that is the open serving-path defect described under
+[Status](#status). The binding algorithm itself re-derives the authorised value
+in 28 of 43 such cases; see the benchmark below.
+
+No key? The same argument runs offline:
+`python examples/minimal_evidence_binding.py`.
+
+## What the evidence says
+
+Nine live models, 150 cases each, 1,350 scored calls
+([`docs/FINDINGS.md`](docs/FINDINGS.md)):
+
+- **Zero false rejections.** Not one case, on any model, where the model bound
+  the critical slot correctly and the gateway then withheld or altered it. A
+  filter that breaks good calls is unshippable; this one doesn't.
+- **It repairs rather than blocks.** Correct calls *rise* behind the gateway on
+  weaker models — 17→45, 18→43, 8→35 out of 60. Of the 43 cases GPT-5.4 nano
+  bound to the attacker's account, 28 were re-derived to the account the user
+  actually authorised, 15 withheld, none leaked.
+- **A cheap model behind it beats a frontier model alone.** GPT-5.4 nano guarded
+  lands 120/150 correct calls with 0 harmful; GPT-5.6 Sol and Grok 4.6 unguarded
+  land 104/150.
+- **The guarantee does not depend on the model.** Native harmful bindings range
+  from 0/60 to 43/60 across the nine. Behind the gateway every one of them is
+  0/60.
+
+Read [Status](#status) before deploying: the binding algorithm is well
+evidenced, the serving path has a specific open defect.
+
 ## Quick start
 
 ```bash
 pip install -e .
 
-export EVIBIND_UPSTREAM_BASE_URL="https://openrouter.ai/api/v1"   # or api.x.ai/v1, a vLLM/Ollama URL
+export EVIBIND_UPSTREAM_BASE_URL="https://api.openai.com/v1"   # or api.x.ai/v1, openrouter.ai/api/v1, a vLLM/Ollama URL
 export EVIBIND_UPSTREAM_API_KEY="your-provider-key"
 export EVIBIND_GATEWAY_API_KEY="local-gateway-key"
 export EVIBIND_HANDLE_SECRET="$(python -c 'import secrets;print(secrets.token_hex(32))')"
@@ -43,13 +97,6 @@ from openai import OpenAI
 client = OpenAI(base_url="http://127.0.0.1:8090/v1", api_key="local-gateway-key")
 ```
 
-> **`api.openai.com` does not currently work as an *upstream*.** OpenAI rejects
-> the forced action tool's schema (top-level `oneOf`) with HTTP 400 before the
-> model is consulted. Verified live on 2026-08-18; details, reproduction and the
-> proposed fix are in
-> [`docs/PROVIDERS.md`](docs/PROVIDERS.md#openai-the-action-schema-is-rejected).
-> This affects the serving path only — the benchmark below ran against live
-> OpenAI models and is unaffected.
 
 Mark the slots that matter with `x-evibind-*` annotations in your tool schema
 (the model never sees them — the gateway strips annotations before forwarding):
@@ -230,6 +277,43 @@ There is also an offline path: `export` the prompts, answer them with any model
 or CLI (including `grok.exe` on Windows), then `score` the JSONL. Individual
 runners live in [`providers/`](providers/).
 
+## Status
+
+Honest picture, because the two halves of this repo are at different maturity.
+
+**Well evidenced — the binding algorithm.** Everything in the table above scores
+`protect_chat_completion` against a model response the harness fetches itself.
+1,350 live scored calls, nine models, zero false rejections, zero harmful
+releases. 447 tests pass.
+
+**Open defect — the serving path.** `evibind serve` owns the whole interaction:
+it compiles a candidate table, forces one action tool, has the model select
+handles instead of writing literals, then certifies and materializes. Run
+end-to-end against live OpenAI it is *safe but not yet useful* — 150/150 cases,
+0 harmful, but 0 intended calls completed:
+
+| | correct | harmful | withheld | malformed |
+|---|---|---|---|---|
+| offline binding arm | 120/150 | 0 | 30 | 0 |
+| serving path, end to end | 0/150 | 0 | 135 | 15 |
+
+One defect causes it. Cue-based extraction captures the token after the cue
+*and optionally a second one*, so `"...account ACC-4000 - that is..."` offers
+the model `"ACC-4000 -"` and `"I have"` instead of `"ACC-4000"`. Shown an
+over-captured value beside a junk one, the model calls the slot ambiguous and
+fails closed — correctly, given what it was shown. The same greedy capture
+appends the following word to long ARNs, which is all 15 malformed releases.
+Reproduced live, pinned by `tests/test_extraction_overcapture.py`, written up in
+[`docs/FINDINGS.md`](docs/FINDINGS.md) §10 with the proposed fix.
+
+**Latency.** Ten sequential requests each, GPT-5.4 nano: 0.67s median direct,
+0.98s median through the gateway — `+0.31s`, one round trip, no second model
+call.
+
+**Not measured yet.** Annotation burden on a real tool surface, throughput under
+load, and any third-party injection benchmark. InjectBench is self-authored;
+one external number would be worth more than another 150 cases of our own.
+
 ## Results from the paper
 
 The research artifact behind this repo froze a 100-case test (ten unseen tool
@@ -265,13 +349,24 @@ paper's §8.
 
 | path | contents |
 |---|---|
+| path | contents |
+|---|---|
 | `evibind/` | product surface: gateway, policy, schema lint, CLI (`evibind serve`) |
 | `tapbench/` | the underlying engine: compiler, materializer, certificates, fuzzer, suites |
-| `bench/` | InjectBench: 150 cases, plus a mock provider for key-free runs |
-| `providers/` | one-command runners: OpenRouter, xAI/Grok, GPT-5.6, local models |
-| `examples/` | offline minimal binding, guarded host execution, annotated request |
-| `docs/` | findings, public API, reproducibility, upstream research README |
+| `bench/` | InjectBench: 150 cases, the mock provider, and both runners |
+| `providers/` | one-command runners: OpenAI, xAI/Grok, OpenRouter, local models |
+| `examples/` | `live_gateway_demo.py` (network) and `minimal_evidence_binding.py` (offline) |
+| `docs/` | start with [`FINDINGS.md`](docs/FINDINGS.md); the rest is paper apparatus |
 | `tests/` | boundary, gateway, fragility, and suite tests |
+
+Start here: [`examples/live_gateway_demo.py`](examples/live_gateway_demo.py) to
+see it work, [`docs/FINDINGS.md`](docs/FINDINGS.md) for every result and every
+known defect, [`bench/cases.py`](bench/cases.py) for what is actually tested.
+
+The `docs/` directory also carries the paper's apparatus — preregistrations,
+review panels, human-study protocols. Those are the research record, not
+product documentation; `FINDINGS.md`, `PROVIDERS.md`, `PUBLIC_API.md` and
+`OPERATIONS.md` are the ones you want.
 
 ## Development
 
@@ -280,6 +375,10 @@ pip install -e ".[dev]"
 pytest tests -q
 ruff check .
 ```
+
+Sixteen test modules import the paper's `scripts` package, which this repo does
+not ship; `tests/conftest.py` skips them when it is absent, so `pytest tests -q`
+is green on a clean checkout.
 
 ## Citation
 

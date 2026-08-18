@@ -8,6 +8,7 @@ from typing import Iterator
 
 import pytest
 
+from tapbench.one_call_gateway import action_branches
 import tapbench.gateway as gateway_module
 from tapbench.gateway import EviBindGateway, GatewayConfig, UpstreamError
 
@@ -36,7 +37,7 @@ def test_gateway_round_trip_to_openai_compatible_upstream() -> None:
             action_schema = payload["tools"][0]["function"]["parameters"]
             call_branch = next(
                 branch
-                for branch in action_schema["oneOf"]
+                for branch in action_branches(action_schema)
                 if branch["properties"]["mode"].get("const") == "call"
             )
             candidate_id = call_branch["properties"]["bindings"]["properties"][

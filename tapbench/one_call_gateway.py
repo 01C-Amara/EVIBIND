@@ -934,7 +934,8 @@ def compile_one_call_session(
         {
             "role": "system",
             "content": (
-                "Return exactly one call to evibind_action. "
+                "Return exactly one call to evibind_action, with the "
+                "selection nested in the top-level \"action\" object. "
                 + selection_instruction
                 + " If a required destination has no valid "
                 "candidate, use need_input. If no tool is appropriate, use "
@@ -1113,6 +1114,50 @@ def _missing_destinations(
     return frozenset(destinations)
 
 
+ACTION_ENVELOPE_KEY = "action"
+
+
+def _wrap_action_schema(union: dict[str, Any]) -> dict[str, Any]:
+    """Nest a branch union under one required property.
+
+    OpenAI rejects a function schema carrying ``oneOf`` / ``anyOf`` / ``allOf``
+    / ``enum`` / ``const`` / ``not`` at the top level of ``parameters``
+    (``invalid_function_parameters``), so the union cannot be the parameters
+    object itself. Nesting it preserves every branch constraint -- the model is
+    still choosing exactly one mode with exactly one set of required fields --
+    while producing a schema OpenAI, Anthropic and llama.cpp all accept.
+    """
+    return {
+        "type": "object",
+        "properties": {ACTION_ENVELOPE_KEY: union},
+        "required": [ACTION_ENVELOPE_KEY],
+        "additionalProperties": False,
+    }
+
+
+def action_branches(parameters: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The mode branches of an action-tool ``parameters`` schema.
+
+    Reads the enveloped form (union nested under ``action``) or the flat form,
+    so callers never hardcode where the union lives.
+    """
+    inner = parameters.get("properties", {}).get(ACTION_ENVELOPE_KEY)
+    union = inner if isinstance(inner, Mapping) else parameters
+    return list(union.get("oneOf") or [])
+
+
+def _unwrap_action_arguments(parsed: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Read the action object from either the enveloped or the flat form.
+
+    Upstreams that predate the envelope -- and replayed certificates recorded
+    against them -- still send ``{"mode": ...}`` at the top level.
+    """
+    inner = parsed.get(ACTION_ENVELOPE_KEY)
+    if isinstance(inner, Mapping) and "mode" not in parsed:
+        return inner
+    return parsed
+
+
 def _indexed_action_schema() -> dict[str, Any]:
     binding = {
         "type": "object",
@@ -1123,7 +1168,7 @@ def _indexed_action_schema() -> dict[str, Any]:
         "required": ["slot_index", "candidate_index"],
         "additionalProperties": False,
     }
-    return {
+    return _wrap_action_schema({
         "type": "object",
         "oneOf": [
             {
@@ -1161,7 +1206,7 @@ def _indexed_action_schema() -> dict[str, Any]:
                 "additionalProperties": False,
             },
         ],
-    }
+    })
 
 
 def _literal_argument_schema(
@@ -1279,7 +1324,7 @@ def _action_schema(
             "additionalProperties": False,
         }
     )
-    return {"type": "object", "oneOf": branches}
+    return _wrap_action_schema({"type": "object", "oneOf": branches})
 
 
 def _parse_action_proposal(
@@ -1305,6 +1350,7 @@ def _parse_action_proposal(
         raise OneCallError("evibind_action arguments are invalid JSON") from exc
     if not isinstance(parsed, Mapping):
         raise OneCallError("evibind_action arguments must be an object")
+    parsed = _unwrap_action_arguments(parsed)
     call_id = call.get("id")
     return (
         ActionProposal.from_dict(parsed),
@@ -1334,6 +1380,7 @@ def _parse_indexed_action_proposal(
         raise OneCallError("evibind_action arguments are invalid JSON") from exc
     if not isinstance(parsed, Mapping):
         raise OneCallError("evibind_action arguments must be an object")
+    parsed = _unwrap_action_arguments(parsed)
     mode = parsed.get("mode")
     call_id = call.get("id") if isinstance(call, Mapping) else None
     normalized_call_id = call_id if isinstance(call_id, str) and call_id else None
