@@ -173,7 +173,6 @@ def materialize_router_qa_action(
     case_id = str(case["case_id"])
     request = user_request_text(case.get("messages", []))
     tools = list(case.get("tools", []))
-    language = str(case.get("metadata", {}).get("language") or case.get("factors", {}).get("language") or "unknown")
     ranking = validate_external_ranking_row(
         ranking_row,
         case_id=case_id,

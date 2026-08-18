@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 import re
 from collections import defaultdict
 from pathlib import Path

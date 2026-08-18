@@ -216,7 +216,6 @@ class EvidenceTypeRegistry:
             )
 
         reference_roots = frozenset({"span", "state_ref", "enum_value"})
-        registry_roots = frozenset({"state_ref", "enum_value"})
         return cls(
             (
                 EvidenceType("uuid", uuid_value),

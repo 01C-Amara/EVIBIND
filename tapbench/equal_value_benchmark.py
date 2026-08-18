@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 from typing import Any, Mapping, Sequence
 
 from evibind.core.derivations import canonical_json

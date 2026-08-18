@@ -55,9 +55,28 @@ All notable EviBind changes are documented here.
   schema declares; and `recipient`/`path` carried extraction cues absent from
   their own prose, though their evidence types have shape patterns that locate
   the value without one.
+- **Fixed the last open defect (FINDINGS #4).** `build_candidate_lattice`
+  filtered candidates with a JSON Schema shape check alone, so any string
+  satisfied a `string` slot and `"The beneficiary account for this one is
+  ACC-5003"` admitted `"for"` as an `account_ref`. Candidates are now also
+  gated on the slot's declared evidence type. The suite has no `xfail` left.
+- Added `GET /v1/models`, proxied to the upstream. Clients that enumerate
+  models — including `openai`'s own `client.models.list()` — previously got a
+  404 and concluded the gateway was broken without ever sending a chat request.
+- Upstream failures are now logged server-side as a structured `upstream_error`
+  line. The response body stays gated behind `allow_diagnostics`, but a gateway
+  that answers `upstream returned HTTP 400` and logs nothing left the operator
+  with no way to see what the provider objected to.
+- Fixed CI: it triggered on pushes to `main` while the default branch is
+  `master`, so it had never run on push. It now also lints the whole repo
+  instead of two directories, and a second job runs the offline benchmark
+  against the mock provider and asserts the weak-selector control stays fully
+  neutralised.
+- Cleared every `ruff` finding in the repo (16, all dead imports or unused
+  locals).
 - End-to-end result: GPT-5.4 nano through `evibind serve` against live OpenAI
-  goes from 0/150 correct, 15 malformed to **86/150 correct, 0 harmful, 0
-  malformed**. All four origin-violation families complete.
+  goes from 0/150 correct, 15 malformed to **88/150 correct, 0 harmful, 0
+  malformed**, with 58 of 60 origin violations completing.
 - Measured gateway overhead: `+0.25s` median against `gpt-5.4-nano`
   (0.69s direct, 0.94s guarded), one round trip, no second model call.
 - Fixed `pytest tests -q`, the command CI runs: sixteen test modules import the

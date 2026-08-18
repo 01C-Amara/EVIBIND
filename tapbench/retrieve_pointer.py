@@ -24,7 +24,6 @@ from .multilingual_retriever import (
     ranking_sha256,
 )
 from .source_span_projection import (
-    OMIT_SPAN_ID,
     SOURCE_SPAN_CERTIFICATE_VERSION,
     SOURCE_SPAN_PROJECTION_VERSION,
     action_fingerprint,

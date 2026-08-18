@@ -5,8 +5,10 @@ import json
 import random
 import re
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any, Iterable
+
+from evibind.core.evidence_types import EvidenceTypeError, EvidenceTypeRegistry
 
 EVIDENCE_CONTRACT_VERSION = "tapbench.evidence_contract.v4"
 CERTIFICATE_VERSION = "tapbench.candidate_certificate.v1"
@@ -366,6 +368,38 @@ def _trusted_state_candidates(slot: str, role: str, resolution_type: str, dialog
     return rows
 
 
+_EVIDENCE_TYPES = EvidenceTypeRegistry.standard()
+
+
+def _satisfies_evidence_type(value: Any, prop: dict[str, Any]) -> bool:
+    """Reject a candidate that cannot be an instance of its declared type.
+
+    ``_value_matches_property`` only checks the JSON Schema shape, so any string
+    satisfied a ``string`` slot. Extractive resolution offers the words after an
+    extraction cue, which meant *"The beneficiary account for this one is
+    ACC-5003"* admitted ``"for"`` as an ``account_ref``, and released it when the
+    model proposed an unsupported literal. No untrusted-origin value escaped —
+    confinement was never violated — but the fail-closed contract was, and a
+    malformed argument went downstream.
+
+    The slot declares what the value is supposed to be; the registry knows how
+    to check it. An unknown or undeclared type is not a licence to admit
+    anything shaped like a string, but it is also not grounds to reject: those
+    fall through to the schema check alone, as before.
+    """
+    name = prop.get("x-tap-evidence-type") or prop.get("x-evibind-evidence-type")
+    if not isinstance(name, str) or not name:
+        return True
+    try:
+        evidence_type = _EVIDENCE_TYPES.get(name)
+    except EvidenceTypeError:
+        return True
+    try:
+        return bool(evidence_type.validator(value))
+    except Exception:  # noqa: BLE001 - a validator that raises has not matched
+        return False
+
+
 def _value_matches_property(value: Any, prop: dict[str, Any]) -> bool:
     enum = prop.get("enum")
     if isinstance(enum, list) and value not in enum:
@@ -442,7 +476,10 @@ def build_candidate_lattice(
             if source_policy == "trusted_state_only":
                 candidates = [candidate for candidate in candidates if candidate.source_kind == "trusted_state"]
             candidates = _deduplicate([
-                candidate for candidate in candidates if _value_matches_property(candidate.value, prop)
+                candidate
+                for candidate in candidates
+                if _value_matches_property(candidate.value, prop)
+                and _satisfies_evidence_type(candidate.value, prop)
             ])
             ids = list(range(len(candidates)))
             rng.shuffle(ids)

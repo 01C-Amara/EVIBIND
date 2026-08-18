@@ -170,12 +170,13 @@ def _load_study(path: Path) -> dict[str, Any]:
     }
     predictions = read_jsonl(path / "predictions.jsonl")
     official = read_jsonl(path / "official" / "official_details.jsonl")
-    identity = lambda row: (
-        str(row.get("case_id")),
-        str(row.get("model_id")),
-        str(row.get("method")),
-        int(row.get("seed", 0)),
-    )
+    def identity(row):
+        return (
+            str(row.get("case_id")),
+            str(row.get("model_id")),
+            str(row.get("method")),
+            int(row.get("seed", 0)),
+        )
     official_by_id = {identity(row): row for row in official}
     if len(official_by_id) != len(official):
         raise ValueError(f"duplicate official identities in {path}")

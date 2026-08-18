@@ -10,7 +10,6 @@ from . import NORMALIZER_VERSION, SCORER_VERSION, VALIDATOR_VERSION
 from .io import read_jsonl, write_jsonl, write_yaml
 from .ir import MODES, parse_and_normalize_prediction
 from .scoring import _prediction_identity
-from .thinking import prediction_has_thinking_marker
 
 BFCL_ANCHOR_VERSION = "tapbench.bfcl_anchor.v1"
 DEFAULT_GRID_ID = "BFCL_v4_external_anchor"

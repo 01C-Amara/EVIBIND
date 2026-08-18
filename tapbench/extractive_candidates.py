@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections import defaultdict
 from decimal import Decimal
 from typing import Any, Iterable
 

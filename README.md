@@ -69,9 +69,8 @@ Nine live models, 150 cases each, 1,350 scored calls
   0/60.
 
 End to end through `evibind serve` against live OpenAI, GPT-5.4 nano now
-completes 86/150 with 0 harmful and 0 malformed releases — up from 0/150 before
-the extraction fixes in [`docs/FINDINGS.md`](docs/FINDINGS.md) §10. Read
-[Status](#status) before deploying; one fail-closed defect is still open.
+completes 88/150 with 0 harmful and 0 malformed releases — up from 0/150 before
+the extraction fixes in [`docs/FINDINGS.md`](docs/FINDINGS.md) §10.
 
 ## Quick start
 
@@ -91,8 +90,17 @@ Point your existing OpenAI client at the gateway — nothing else changes:
 
 ```python
 from openai import OpenAI
+
 client = OpenAI(base_url="http://127.0.0.1:8090/v1", api_key="local-gateway-key")
+completion = client.chat.completions.create(
+    model="gpt-5.4-nano", messages=messages, tools=[annotated_tool]
+)
 ```
+
+Verified against the stock `openai` package: with the model proposing the
+injected account, the client receives the account the user authorised.
+`GET /v1/models` proxies your upstream, so tools that enumerate models to
+populate a picker or health-check a base URL work too.
 
 
 Mark the slots that matter with `x-evibind-*` annotations in your tool schema
@@ -109,7 +117,9 @@ Mark the slots that matter with `x-evibind-*` annotations in your tool schema
 }
 ```
 
-An offline, no-key end-to-end example: `python examples/minimal_evidence_binding.py`.
+Two runnable end-to-end examples: `examples/live_gateway_demo.py` (network, a
+real injection, with and without the gateway) and
+`examples/minimal_evidence_binding.py` (offline, no key).
 
 ## Where it sits
 
@@ -292,12 +302,12 @@ OpenAI with GPT-5.4 nano, before and after the extraction fixes described in
 | | correct | harmful | withheld | malformed |
 |---|---|---|---|---|
 | serving path, as first measured | 0/150 | 0 | 135 | 15 |
-| **serving path, now** | **86/150** | **0** | **64** | **0** |
+| **serving path, now** | **88/150** | **0** | **62** | **0** |
 
-All four origin-violation families complete: injected instruction 15/15,
-injected data field 15/15, forged authority 15/15, user-defers-to-tool 11/15.
+58 of 60 origin violations complete: injected instruction 15/15, injected data
+field 15/15, forged authority 15/15, user-defers-to-tool 13/15.
 
-Most of the 64 remaining abstentions are the boundary doing its job — 15
+Most of the 62 remaining abstentions are the boundary doing its job — 15
 `ambiguity` cases should clarify rather than guess, and 15 `distractor` cases
 put eight near-duplicate accounts in play. 15 `cross_slot` cases stay unresolved
 because cue-based extraction cannot separate two same-type slots when neither
@@ -306,13 +316,6 @@ cue precedes its value; that limit is real and documented.
 **Latency.** Ten sequential requests each, GPT-5.4 nano: 0.69s median direct,
 0.94s median through the gateway — `+0.25s`, one round trip, no second model
 call.
-
-**Known open defect.** In `protect_chat_completion`'s resolution path, an
-unsupported literal in a multi-candidate context can still release a malformed
-span (`{"beneficiary_account": "for"}`). Confinement is not violated — no
-untrusted value escapes — but the fail-closed contract is. Pinned as `xfail` in
-`tests/test_injectbench_boundary.py`, detailed in
-[`docs/FINDINGS.md`](docs/FINDINGS.md) §4.
 
 **Not measured yet.** Annotation burden on a real tool surface, throughput under
 load, and any third-party injection benchmark. InjectBench is self-authored; one

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import ipaddress
 import json
+import sys
 import os
 import secrets
 import time
@@ -190,6 +191,13 @@ class GatewayConfig:
         if base.endswith("/v1"):
             return base + "/chat/completions"
         return base + "/v1/chat/completions"
+
+    @property
+    def models_url(self) -> str:
+        base = self.upstream_base_url.rstrip("/")
+        if base.endswith("/v1"):
+            return base + "/models"
+        return base + "/v1/models"
 
 
 def _runtime_schema(value: Any) -> Any:
@@ -697,12 +705,14 @@ class EviBindGateway:
                 body = json.loads(raw.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError):
                 body = raw.decode("utf-8", errors="replace")
+            log_upstream_failure("chat/completions", exc.code, body)
             raise UpstreamError(
                 f"upstream returned HTTP {exc.code}",
                 status=exc.code,
                 body=body,
             ) from exc
         except urllib.error.URLError as exc:
+            log_upstream_failure("chat/completions", None, str(exc.reason))
             raise UpstreamError(
                 f"could not reach upstream: {exc.reason}",
                 status=HTTPStatus.BAD_GATEWAY,
@@ -719,6 +729,59 @@ class EviBindGateway:
                 "upstream response must be a JSON object",
                 status=HTTPStatus.BAD_GATEWAY,
                 body=parsed,
+            )
+        return parsed
+
+    def list_models(self) -> dict[str, Any]:
+        """Proxy GET /v1/models to the upstream.
+
+        EviBind adds nothing here — no model is hidden and none is invented.
+        The route exists because OpenAI-compatible clients enumerate models to
+        populate pickers and to health-check a base URL, and a 404 makes the
+        gateway look broken to tools that never send a chat request at all.
+        """
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": f"EviBind/{EVIBIND_GATEWAY_VERSION}",
+        }
+        if self.config.upstream_api_key:
+            headers["Authorization"] = f"Bearer {self.config.upstream_api_key}"
+        request = urllib.request.Request(
+            self.config.models_url, headers=headers, method="GET"
+        )
+        try:
+            with _NO_REDIRECT_OPENER.open(
+                request, timeout=self.config.timeout_seconds
+            ) as response:
+                raw = _read_upstream_body(response)
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = _read_upstream_body(exc).decode("utf-8", errors="replace")
+            finally:
+                exc.close()
+            log_upstream_failure("models", exc.code, detail)
+            raise UpstreamError(
+                f"upstream returned HTTP {exc.code}",
+                status=exc.code,
+                body=detail,
+            ) from exc
+        except urllib.error.URLError as exc:
+            log_upstream_failure("models", None, str(exc.reason))
+            raise UpstreamError(
+                f"could not reach upstream: {exc.reason}",
+                status=HTTPStatus.BAD_GATEWAY,
+            ) from exc
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise UpstreamError(
+                "upstream returned invalid JSON",
+                status=HTTPStatus.BAD_GATEWAY,
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise UpstreamError(
+                "upstream response must be a JSON object",
+                status=HTTPStatus.BAD_GATEWAY,
             )
         return parsed
 
@@ -803,6 +866,31 @@ class EviBindGateway:
         return protected
 
 
+def log_upstream_failure(route: str, status: int | None, detail: Any) -> None:
+    """Record a failed upstream call on stderr.
+
+    A gateway that answers ``{"message": "upstream returned HTTP 400"}`` and
+    logs nothing leaves the operator with no way to see what the provider
+    objected to. The response body stays gated behind ``allow_diagnostics``,
+    because it may echo request content; the log is server-side and always on.
+    """
+    text = detail if isinstance(detail, str) else json.dumps(detail, default=str)
+    print(
+        json.dumps(
+            {
+                "event": "upstream_error",
+                "route": route,
+                "status": status,
+                "detail": text[:600],
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        ),
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def _error_payload(
     exc: GatewayError, *, include_upstream: bool = False
 ) -> dict[str, Any]:
@@ -848,6 +936,24 @@ def make_handler(gateway: EviBindGateway) -> type[BaseHTTPRequestHandler]:
             self.wfile.write(body)
 
         def do_GET(self) -> None:
+            if self.path.rstrip("/") == "/v1/models":
+                if not self._authorized():
+                    self._send_json(
+                        HTTPStatus.UNAUTHORIZED,
+                        {"error": {"message": "invalid gateway API key"}},
+                    )
+                    return
+                try:
+                    self._send_json(HTTPStatus.OK, gateway.list_models())
+                except GatewayError as exc:
+                    self._send_json(
+                        exc.status,
+                        _error_payload(
+                            exc,
+                            include_upstream=gateway.config.allow_diagnostics,
+                        ),
+                    )
+                return
             if self.path.rstrip("/") in {"", "/health"}:
                 self._send_json(
                     HTTPStatus.OK,

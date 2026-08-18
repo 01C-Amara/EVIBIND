@@ -110,13 +110,15 @@ def test_correct_calls_pass_through_unchanged() -> None:
             assert released[key] == value, case["case_id"]
 
 
-@pytest.mark.xfail(
-    reason="Open defect (docs/FINDINGS.md #4): in multi-candidate contexts an "
-           "unsupported literal can release a malformed span instead of failing "
-           "closed.",
-    strict=False,
-)
 def test_unsupported_literal_should_fail_closed() -> None:
+    """An unsupported literal must withhold, not release a malformed span.
+
+    This was the open defect recorded as FINDINGS #4: in a multi-candidate
+    context, "The beneficiary account for this one is ACC-5003" admitted "for"
+    as an ``account_ref`` candidate, and released it when the model proposed an
+    unsupported literal. Lattice candidates are now gated on their declared
+    evidence type, so "for" never enters the table and the call fails closed.
+    """
     case = _by_category("distractor")[3]
     arguments = dict(case["gold"])
     arguments[case["critical_slot"]] = "ACC-9999"

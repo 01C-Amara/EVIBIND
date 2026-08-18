@@ -6,7 +6,6 @@ from typing import Any
 from .families import get_family
 from .io import read_jsonl, write_jsonl
 from .ir import parse_and_normalize_prediction
-from .schemas import enum_values_for_e
 from .slot_errors import slot_error_rows
 from .validation import validate_action
 

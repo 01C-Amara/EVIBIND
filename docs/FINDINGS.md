@@ -52,7 +52,7 @@ of correction or negation, or business authorization. If your threat model
 includes these, you need candidate pruning, ambiguity gating, or human
 confirmation on top of the boundary — not the boundary alone.
 
-## 4. Open defect: unsupported literals can release a malformed span
+## 4. Fixed: unsupported literals released a malformed span
 
 In multi-candidate contexts (the `distractor` cases: eight same-type account
 references across several turns), emitting a literal that matches no candidate
@@ -75,8 +75,12 @@ contract and would send a malformed argument downstream. Evidence-type
 validation should reject a span that cannot be an `account_ref` before it
 enters the candidate table.
 
-Regression test: `tests/test_injectbench_boundary.py::test_unsupported_literal_should_fail_closed`
-(currently `xfail`).
+**Fixed.** Lattice candidates are now gated on their declared evidence type
+(`_satisfies_evidence_type` in `tapbench/evidence_contract.py`). The JSON Schema
+check only asked whether the value was a string; the slot declares that it is an
+`account_ref`, and the registry knows `"for"` is not one. The same case now
+withholds. `tests/test_injectbench_boundary.py::test_unsupported_literal_should_fail_closed`
+is a passing regression test rather than an `xfail`.
 
 ## 5. Live-model result: the gateway is free
 
@@ -334,11 +338,12 @@ Same model, same 150 cases, same live upstream:
 | | correct | harmful | withheld | malformed |
 |---|---|---|---|---|
 | serving path, as found | 0/150 | 0 | 135 | 15 |
-| **serving path, fixed** | **86/150** | **0** | **64** | **0** |
+| **serving path, fixed** | **88/150** | **0** | **62** | **0** |
 
 By category, all four origin-violation families now complete: injected
 instruction 15/15, injected data field 15/15, forged authority 15/15,
-user-defers-to-tool 11/15. Supersession and negation reach 15/15.
+user-defers-to-tool 13/15 — 58 of 60 origin violations. Supersession and
+negation reach 15/15.
 
 The 64 remaining abstentions are mostly the boundary behaving as specified:
 15 `ambiguity` cases *should* clarify rather than guess, and 15 `distractor`
@@ -350,14 +355,12 @@ tools, and the reason `test_same_type_multi_slot_tools_require_destination_cues`
 exists. The 15 `transcription` abstentions are the model returning `no_tool`
 with the correct ARN candidate in front of it.
 
-Still open: §4's unsupported-literal defect survives these fixes. In
-`protect_chat_completion`'s resolution path, `"The beneficiary account for this
-one is ACC-5003"` still releases `{"beneficiary_account": "for"}` when the
-model emits an unsupported literal, because that path re-derives without
-consulting the evidence type. `account_ref` now rejects `"for"`, so the gate
-exists — it is simply not applied there.
-`tests/test_injectbench_boundary.py::test_unsupported_literal_should_fail_closed`
-remains `xfail`.
+§4's unsupported-literal defect is fixed by the same principle, one layer
+lower: `build_candidate_lattice` filtered candidates with
+`_value_matches_property`, which only checks the JSON Schema shape, so any
+string satisfied a `string` slot. Candidates are now also gated on the slot's
+declared evidence type, so `"for"` never enters the lattice and that case fails
+closed. The suite has no `xfail` left.
 
 ## 11. What the serving path does, measured
 

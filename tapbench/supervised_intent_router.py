@@ -10,7 +10,7 @@ import unicodedata
 import zlib
 from collections import Counter
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import numpy as np
 
