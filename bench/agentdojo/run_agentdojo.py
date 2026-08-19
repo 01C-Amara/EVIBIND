@@ -48,14 +48,19 @@ try:
 except ImportError:  # pragma: no cover
     raise SystemExit("agentdojo is not installed. `pip install agentdojo`.")
 
+from budget import BudgetExceeded, MeteredOpenAI, UsageMeter  # noqa: E402
 from evibind_pipeline import EviBindToolCallGuard  # noqa: E402
 from run_bench import _resolve_key  # noqa: E402
 
 
-def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None):
+def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None,
+                   meter: UsageMeter | None = None):
     import openai
 
-    llm = OpenAILLM(openai.OpenAI(api_key=api_key), model)
+    client = openai.OpenAI(api_key=api_key)
+    if meter is not None:
+        client = MeteredOpenAI(client, meter)
+    llm = OpenAILLM(client, model)
     elements = [ToolsExecutor(), llm] if guard is None else [guard, ToolsExecutor(), llm]
     pipeline = AgentPipeline([
         SystemMessage("You are an AI language model who assists the user by "
@@ -87,6 +92,12 @@ def main() -> None:
     parser.add_argument("--user-tasks", nargs="*", default=None)
     parser.add_argument("--injection-tasks", nargs="*", default=None)
     parser.add_argument("--out", default=None)
+    parser.add_argument("--budget-usd", type=float, default=None,
+                        help="hard spend ceiling; the run aborts when reached")
+    parser.add_argument("--input-per-1m", type=float, default=0.15,
+                        help="input price per million tokens for --model")
+    parser.add_argument("--output-per-1m", type=float, default=0.60,
+                        help="output price per million tokens for --model")
     parser.add_argument("--no-injections", action="store_true",
                         help="clean-utility control: no attack at all, "
                              "which is where a false rejection would show")
@@ -107,13 +118,20 @@ def main() -> None:
         "arms": {},
     }
 
+    meter = UsageMeter(input_per_1m=args.input_per_1m,
+                       output_per_1m=args.output_per_1m,
+                       ceiling_usd=args.budget_usd)
+    report["pricing"] = {"input_per_1m": args.input_per_1m,
+                         "output_per_1m": args.output_per_1m}
+
     for arm in ("baseline", "evibind"):
         guard = EviBindToolCallGuard() if arm == "evibind" else None
-        pipeline = build_pipeline(args.model, api_key, guard)
+        pipeline = build_pipeline(args.model, api_key, guard, meter)
         attack = load_attack(args.attack, suite, pipeline)
         # AgentDojo's TraceLogger reads logdir off the active logger on the
         # stack, so the run has to happen inside an OutputLogger context.
-        with OutputLogger(str(logdir)):
+        try:
+          with OutputLogger(str(logdir)):
             if args.no_injections:
                 # this one takes no verbose flag
                 results = benchmark_suite_without_injections(
@@ -124,7 +142,13 @@ def main() -> None:
                     pipeline, suite, attack, logdir=logdir, force_rerun=True,
                     user_tasks=args.user_tasks,
                     injection_tasks=args.injection_tasks, verbose=False)
+        except BudgetExceeded as exc:
+            print(f"{arm:9s} ABORTED: {exc}")
+            report["aborted"] = {"arm": arm, "reason": str(exc),
+                                 "usage": meter.summary()}
+            break
         summary = summarise(results)
+        summary['usage_after_arm'] = meter.summary()
         if guard is not None:
             summary["guard_stats"] = dict(guard.stats)
         summary["injections"] = not args.no_injections
@@ -143,8 +167,11 @@ def main() -> None:
 
     out = Path(args.out or f"bench/results/agentdojo-{args.suite}-{args.model}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
+    report["usage"] = meter.summary()
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print(f"\nwrote {out}")
+    print(f"\nspend: ${meter.usd:.3f} over {meter.calls} model calls "
+          f"({meter.input_tokens:,} in / {meter.output_tokens:,} out)")
+    print(f"wrote {out}")
 
 
 if __name__ == "__main__":
