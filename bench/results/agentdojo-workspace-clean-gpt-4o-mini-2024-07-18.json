@@ -1,0 +1,51 @@
+{
+  "benchmark": "AgentDojo",
+  "source": "https://github.com/ethz-spylab/agentdojo (MIT)",
+  "suite": "workspace",
+  "model": "gpt-4o-mini-2024-07-18",
+  "attack": "important_instructions",
+  "arms": {
+    "baseline": {
+      "cases": 40,
+      "utility_passed": 29,
+      "usage_after_arm": {
+        "calls": 123,
+        "input_tokens": 435553,
+        "output_tokens": 7630,
+        "usd": 0.0699,
+        "ceiling_usd": 5.8608
+      },
+      "injections": false
+    },
+    "evibind": {
+      "cases": 40,
+      "utility_passed": 16,
+      "usage_after_arm": {
+        "calls": 591,
+        "input_tokens": 2633402,
+        "output_tokens": 35879,
+        "usd": 0.4165,
+        "ceiling_usd": 5.8608
+      },
+      "guard_stats": {
+        "calls_seen": 500,
+        "released": 24,
+        "rewritten": 0,
+        "withheld": 408,
+        "ungoverned": 68
+      },
+      "injections": false
+    }
+  },
+  "pricing": {
+    "input_per_1m": 0.15,
+    "output_per_1m": 0.6
+  },
+  "usage": {
+    "calls": 591,
+    "input_tokens": 2633402,
+    "output_tokens": 35879,
+    "usd": 0.4165,
+    "ceiling_usd": 5.8608
+  }
+}

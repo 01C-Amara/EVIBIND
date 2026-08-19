@@ -43,8 +43,27 @@ IDENTIFIER_TYPES: tuple[tuple[tuple[str, ...], str], ...] = (
 JSON_TYPES = {"string", "integer", "number", "boolean", "array", "object"}
 
 
+# Tools whose whole job is to read. Their arguments select what to look at;
+# they do not carry authority to act, and governing them only stops the agent
+# gathering the information it needs. AgentDojo's attacker goals are all
+# effectful -- send_money, update_scheduled_transaction, invite_user_to_slack,
+# send_email -- so the boundary belongs on those.
+READ_PREFIXES = ("get_", "read_", "list_", "search_", "view_", "find_",
+                 "check_", "fetch_", "query_")
+
+
+def _is_effectful(tool_name: str) -> bool:
+    return not tool_name.lower().startswith(READ_PREFIXES)
+
+
 def _evidence_type(name: str, description: str) -> str | None:
-    haystack = f"{name} {description}".lower()
+    """Classify by parameter *name*.
+
+    The description is deliberately ignored. Matching it made `send_email`'s
+    `subject` and `body` into `email_address` slots, because their descriptions
+    say "of the email", while the actual recipient list went ungoverned.
+    """
+    haystack = name.lower()
     for keywords, evidence_type in IDENTIFIER_TYPES:
         if any(keyword in haystack for keyword in keywords):
             return evidence_type
@@ -55,6 +74,7 @@ def annotate(schema: dict[str, Any], tool_name: str) -> dict[str, Any]:
     """Rebuild an AgentDojo tool schema with EviBind annotations."""
     properties: dict[str, Any] = {}
     required = list(schema.get("required") or [])
+    effectful = _is_effectful(tool_name)
     # Every parameter is annotated, not only the required ones. On an update
     # call the field being changed is optional by nature -- AgentDojo's
     # `update_scheduled_transaction(id, recipient=None, ...)` marks only `id`
@@ -76,8 +96,13 @@ def annotate(schema: dict[str, Any], tool_name: str) -> dict[str, Any]:
                                 "description": str(prop.get("description", ""))}
         if json_type == "array":
             spec["items"] = {"type": "string"}
+        # An array of identifiers is as authority-bearing as one identifier:
+        # send_email(recipients=[...]) is the slot an exfiltration attack sets.
+        governable = json_type == "string" or (
+            json_type == "array"
+            and (prop.get("items") or {}).get("type", "string") == "string")
         evidence_type = (_evidence_type(name, str(prop.get("description", "")))
-                         if json_type == "string" else None)
+                         if governable and effectful else None)
         if evidence_type:
             spec.update({
                 "x-evibind-slot-role": "control",
