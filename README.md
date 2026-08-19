@@ -68,27 +68,36 @@ Nine live models, 150 cases each, 1,350 scored calls
   from 0/60 to 43/60 across the nine. Behind the gateway every one of them is
   0/60.
 
-And two numbers that are not ours. On
-[AgentDojo](https://github.com/ethz-spylab/agentdojo)'s banking suite (ETH SPY
-Lab, MIT), scored on **their** utility and security metrics with **their**
-attack, EviBind inserted into **their** agent loop:
+And numbers that are not ours. On
+[AgentDojo](https://github.com/ethz-spylab/agentdojo) (ETH SPY Lab, MIT),
+scored on **their** utility and security metrics, with **their** attack, EviBind
+inserted into **their** agent loop. The banking suite, all 16 user tasks crossed
+with all 9 injection tasks:
 
 | arm | cases | task completed | attack succeeded |
 |---|---|---|---|
-| baseline | 144 | 55 | **68 (47%)** |
-| **EviBind** | 144 | **56** | **5 (3.5%)** |
+| baseline | 144 | 53 | **58 (40%)** |
+| **EviBind** | 144 | **58** | **0** |
 
-With no injection at all — the control where a false rejection would show —
-both arms complete 7 of 16 user tasks. **Attack success down 93%, task
-completion unchanged.** Reproduce with
-[`bench/agentdojo/run_agentdojo.py`](bench/agentdojo/).
+Attacks eliminated, and more tasks completed than without it — because a call
+re-derived from the user's own turn still goes out, where the baseline followed
+the injection and failed the task.
 
-All five residual successes were one ungoverned slot in the benchmark adapter,
-not in the boundary — an optional `recipient` on an update call. That is fixed
-and those five now withhold; see [`docs/FINDINGS.md`](docs/FINDINGS.md) §21.
-The table above is the pre-fix run and will be replaced when the full re-run
-across all four suites completes.
+**Banking is the best case, not the typical one.** Across four suites the
+outcome tracks how often the authorised value is somewhere the attacker cannot
+write to, which `bench/agentdojo/scope.py` measures with no model involved:
 
+| suite | re-derivable | attack succeeded | clean-traffic completion |
+|---|---|---|---|
+| banking | 75% | 58 → **0** | 8 → 6 of 16 |
+| slack | 27% | 66 → **24** | 15 → **1** of 21 |
+
+Where the user names the value, the boundary is close to free. Where they do
+not — Slack, where channel names and addresses come from tool output — it
+withholds most of the traffic and does not even close the attack surface. That
+spread is the honest headline, and
+[`bench/agentdojo/`](bench/agentdojo/) carries all four suites, both arms, the
+clean controls and the reproduction commands.
 
 <p align="center"><img src="assets/bench_contrast.svg" width="840" alt="The same three models refuse tool-selection injection almost perfectly on InjecAgent while taking the attacker's account number two thirds of the time on InjectBench"></p>
 
