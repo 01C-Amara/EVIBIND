@@ -49,5 +49,7 @@
     "output_tokens": 248960,
     "usd": 2.378,
     "ceiling_usd": 8.2388
-  }
+  },
+  "pre_annotation_fix": true,
+  "pre_annotation_fix_note": "guarded arm predates the adapter fixes in FINDINGS section 21; the re-run to replace it hit the spend ceiling before finishing"
 }

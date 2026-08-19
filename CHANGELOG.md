@@ -30,20 +30,31 @@ All notable EviBind changes are documented here.
   scoring change can be replayed without paying for the models again. Not doing
   that the first time is what made confirming this fix cost a re-run.
 
-- **Ran AgentDojo live with EviBind in their agent loop, on their metrics.**
-  Banking suite, GPT-4o mini, `important_instructions`, 16 user tasks crossed
-  with 9 injection tasks: attack success **68/144 (47%) → 5/144 (3.5%)** with
-  task completion **55 → 56**. Clean control with no injection, where a false
-  rejection would show: **7/16 both arms**. A 93% reduction in attack success
-  with completion unchanged, measured by the third party's harness.
+- **Ran AgentDojo live with EviBind in their agent loop, on their metrics**,
+  across all four suites. The result tracks how much of the authorised state
+  the attacker cannot reach, which `scope.py` measures without a model:
+  banking (75% re-derivable) goes **58/144 attacks → 0** with completion
+  **53 → 58**, while slack (27%) goes **66/105 → 24** and takes the clean
+  control from **14/21 → 5/21**. `bench/agentdojo/summarize.py` prints the
+  table; `bench/agentdojo/README.md` carries it.
+- **Retracted: "attack success down 93%, task completion unchanged."** That was
+  banking alone, before the annotation fixes below, and it does not survive
+  three more suites. Confinement is broad — withholding stops the attacker's
+  value whether or not anything is re-derivable — but completion is bought,
+  not free, and where scope is low most of it is spent. The banking number is
+  the best case in the benchmark, not a summary of it.
+- The workspace and travel rows still predate the annotation fixes and are
+  marked with an asterisk in the table rather than quietly refreshed. The
+  re-run to replace them hit the spend ceiling partway through workspace's
+  guarded arm.
 - Added the clean-utility control (`--no-injections`), because utility measured
   only under attack cannot distinguish a boundary that preserves good calls from
   one that breaks them alongside the bad.
-- Recorded two caveats with it. The 7/16 clean figure is GPT-4o mini failing
-  nine tasks on its own, not the boundary. And the pass/fail metric hides work:
-  1,236 of 1,750 proposed calls were withheld across the injected run while
-  completion held level, so the agent retried heavily — real latency and token
-  cost that AgentDojo's score does not capture.
+- Recorded the caveats. A clean-control number is partly the model failing
+  tasks unaided, not the boundary. And pass/fail hides work: **9,276 of 12,269**
+  proposed calls were withheld across the four injected runs, so the agent
+  retried heavily — real latency and token cost that AgentDojo's score does not
+  capture.
 - Explained why this beat the §17 scoping estimate: that measured whether the
   *authorised* value is re-derivable, which governs completion. Attack success
   asks whether the *attacker's* value reaches a tool, and withholding stops that

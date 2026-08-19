@@ -223,9 +223,12 @@ def main() -> None:
     # writes a complete two-arm report. Recorded in the report rather than done
     # silently: the reader has to be able to see that the two arms came from
     # different runs, even though a guard change cannot reach the baseline.
-    if out.exists() and set(args.arms) != {"baseline", "evibind"}:
-        previous = json.loads(out.read_text(encoding="utf-8"))
-        for name, arm_summary in (previous.get("arms") or {}).items():
+    previous_arms: dict[str, dict] = {}
+    if out.exists():
+        previous_arms = (json.loads(out.read_text(encoding="utf-8"))
+                         .get("arms") or {})
+    if previous_arms and set(args.arms) != {"baseline", "evibind"}:
+        for name, arm_summary in previous_arms.items():
             if name not in args.arms:
                 report["arms"][name] = arm_summary
                 report.setdefault("carried_forward", []).append(name)
@@ -253,6 +256,17 @@ def main() -> None:
             print(f"{arm:9s} ABORTED: {exc}")
             report["aborted"] = {"arm": arm, "reason": str(exc),
                                  "usage": meter.summary()}
+            # A re-run that fails must not leave the file worse than it found
+            # it. Without this, aborting the guarded arm of a `--arms evibind`
+            # re-run overwrote a complete two-arm report with a lone carried
+            # baseline - the previous guarded result deleted by an attempt to
+            # improve it, and only recoverable because it was in git.
+            stale = previous_arms.get(arm)
+            if stale is not None:
+                report["arms"][arm] = stale
+                report.setdefault("kept_after_failed_rerun", []).append(arm)
+                print(f"{arm:9s} kept the previous result; this re-run did not "
+                      f"finish")
             _save()
             break
         summary = summarise(results)

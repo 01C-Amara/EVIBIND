@@ -131,9 +131,12 @@ predict the rest of the row:
 | suite | re-derivable | attack base -> guarded | completed base -> guarded | clean base -> guarded |
 |---|---|---|---|---|
 | banking | 75% | 58 -> 0 of 144 | 53 -> 58 | 8 -> 6 of 16 |
-| workspace | 50% | 67 -> 15 of 240 | 83 -> 82 | 29 -> 16 of 40 |
-| travel | 50% | 28 -> 14 of 140 | 68 -> 52 | 10 -> 9 of 20 |
+| workspace * | 50% | 67 -> 15 of 240 | 83 -> 82 | 29 -> 16 of 40 |
+| travel * | 50% | 28 -> 14 of 140 | 68 -> 52 | 10 -> 9 of 20 |
 | slack | 27% | 66 -> 24 of 105 | 57 -> 20 | 14 -> 5 of 21 |
+
+\* pre-annotation-fix run (FINDINGS section 21): the guard still governed read-only
+  tools and matched parameters by description, so this row understates utility.
 
 calls withheld across the injected runs: 9276 of 12269
 measured spend on the injected runs: $4.47
