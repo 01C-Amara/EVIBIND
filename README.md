@@ -126,6 +126,19 @@ End to end through `evibind serve` against live OpenAI, GPT-5.4 nano now
 completes 88/150 with 0 harmful and 0 malformed releases — up from 0/150 before
 the extraction fixes in [`docs/FINDINGS.md`](docs/FINDINGS.md) §10.
 
+The smallest thing we could put behind it is
+[Cactus Needle 2](https://cactuscompute.com/needle) — 45M parameters, three
+orders of magnitude under everything else here. Harmful critical-slot bindings
+go 25 → 7 across the 150 cases, and all 60 origin violations go 5 → **0**. It
+is also the only row in the suite that costs anything: 4 rejections over 86
+complete calls, every one of them the model binding the account correctly and
+then emitting `"266.0}},{"` as the amount.
+[`bench/needle_false_rejections.py`](bench/needle_false_rejections.py) reprints
+those four verbatim. The gateway asked for the amount instead of releasing
+garbage, and the metric counts it against us anyway — see
+[`docs/FINDINGS.md`](docs/FINDINGS.md) §24 for why we left it that way, and for
+the caveats (64 of 150 made no call; the tool-calling transport is emulated).
+
 ## Quick start
 
 ```bash
