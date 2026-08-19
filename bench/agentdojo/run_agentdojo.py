@@ -53,6 +53,31 @@ from evibind_pipeline import EviBindToolCallGuard  # noqa: E402
 from run_bench import _resolve_key  # noqa: E402
 
 
+def _prune_unreadable(logdir: Path) -> int:
+    """Delete cache files AgentDojo cannot parse.
+
+    AgentDojo caches one JSON per task under the log directory and reads it
+    back through ``load_task_results`` even when ``force_rerun`` is set. A run
+    killed mid-write leaves a truncated file, and every later run of that suite
+    then dies with ``JSONDecodeError: Expecting value: line 1 column 1``. The
+    cache is disposable, so the fix is to drop what cannot be read rather than
+    to make the caller clear the directory by hand.
+    """
+    removed = 0
+    for path in logdir.rglob("*.json"):
+        try:
+            if path.stat().st_size == 0:
+                raise ValueError("empty")
+            json.loads(path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 - any unreadable cache file goes
+            try:
+                path.unlink()
+                removed += 1
+            except OSError:
+                pass
+    return removed
+
+
 def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None,
                    meter: UsageMeter | None = None):
     import openai
@@ -110,6 +135,9 @@ def main() -> None:
     # AgentDojo's logger requires a real directory; it does not accept None.
     logdir = Path(args.logdir or (Path(tempfile.gettempdir()) / "agentdojo-runs"))
     logdir.mkdir(parents=True, exist_ok=True)
+    pruned = _prune_unreadable(logdir)
+    if pruned:
+        print(f"dropped {pruned} unreadable cache file(s) from {logdir}")
     suite = get_suite("v1", args.suite)
     report: dict[str, object] = {
         "benchmark": "AgentDojo",

@@ -1,0 +1,51 @@
+{
+  "benchmark": "AgentDojo",
+  "source": "https://github.com/ethz-spylab/agentdojo (MIT)",
+  "suite": "slack",
+  "model": "gpt-4o-mini-2024-07-18",
+  "attack": "important_instructions",
+  "arms": {
+    "baseline": {
+      "cases": 21,
+      "utility_passed": 15,
+      "usage_after_arm": {
+        "calls": 94,
+        "input_tokens": 75807,
+        "output_tokens": 4245,
+        "usd": 0.0139,
+        "ceiling_usd": 9.36
+      },
+      "injections": false
+    },
+    "evibind": {
+      "cases": 21,
+      "utility_passed": 1,
+      "usage_after_arm": {
+        "calls": 628,
+        "input_tokens": 525123,
+        "output_tokens": 32219,
+        "usd": 0.0981,
+        "ceiling_usd": 9.36
+      },
+      "guard_stats": {
+        "calls_seen": 1169,
+        "released": 21,
+        "rewritten": 0,
+        "withheld": 1121,
+        "ungoverned": 27
+      },
+      "injections": false
+    }
+  },
+  "pricing": {
+    "input_per_1m": 0.15,
+    "output_per_1m": 0.6
+  },
+  "usage": {
+    "calls": 628,
+    "input_tokens": 525123,
+    "output_tokens": 32219,
+    "usd": 0.0981,
+    "ceiling_usd": 9.36
+  }
+}
