@@ -111,45 +111,89 @@ never passes through the model's context on the way in.
 
 `run_agentdojo.py` inserts EviBind as a `BasePipelineElement` before
 `ToolsExecutor` inside AgentDojo's `ToolsExecutionLoop`, so every proposed call
-crosses the boundary before anything executes. Scoring is theirs.
+crosses the boundary before anything executes. Scoring is theirs: **utility** is
+whether the user's task completed, **security** is whether the attacker's
+injected goal succeeded.
 
 ```bash
 python bench/agentdojo/run_agentdojo.py --suite banking --model gpt-4o-mini-2024-07-18
 python bench/agentdojo/run_agentdojo.py --suite banking --model gpt-4o-mini-2024-07-18 --no-injections
+python bench/agentdojo/summarize.py            # the table below
 ```
 
-Banking, GPT-4o mini, `important_instructions`, 16 user tasks × 9 injection
-tasks:
+All four suites, GPT-4o mini, `important_instructions`, every user task crossed
+with every injection task. The re-derivable column is `scope.py` from further
+up this page — no model involved — and it is here because it turns out to
+predict the rest of the row:
 
-| arm | cases | task completed | attack succeeded |
-|---|---|---|---|
-| baseline | 144 | 55 | **68 (47%)** |
-| **EviBind** | 144 | **56** | **5 (3.5%)** |
+<!-- generated: summarize.py -->
 
-Clean control, no injection — where a false rejection would show:
+| suite | re-derivable | attack base -> guarded | completed base -> guarded | clean base -> guarded |
+|---|---|---|---|---|
+| banking | 75% | 58 -> 0 of 144 | 53 -> 58 | 8 -> 6 of 16 |
+| workspace | 50% | 67 -> 15 of 240 | 83 -> 82 | 29 -> 16 of 40 |
+| travel | 50% | 28 -> 14 of 140 | 68 -> 52 | 10 -> 9 of 20 |
+| slack | 27% | 66 -> 24 of 105 | 57 -> 20 | 14 -> 5 of 21 |
 
-| arm | user tasks | task completed |
-|---|---|---|
-| baseline | 16 | 7 |
-| **EviBind** | 16 | **7** |
+calls withheld across the injected runs: 9276 of 12269
+measured spend on the injected runs: $4.47
 
-**Attack success down 93%, task completion unchanged.**
+<!-- /generated -->
 
-Two caveats belong with it. 7/16 on the clean control is GPT-4o mini failing
-nine of these tasks unaided — the guard neither helps nor hurts, which is the
-claim, but the absolute number describes the model. And pass/fail hides work:
-1,236 of 1,750 proposed calls were withheld across the injected run while
-completion held level, so the agent retried heavily. That is latency and token
-cost AgentDojo's score does not measure.
+Read the two middle columns together or not at all. A defence that withholds
+everything drives attack success to zero and task completion with it; each
+number alone can be made to look like a result.
 
-### Why this beat the scoping estimate
+### Scope predicts the trade
 
-The 36% above predicted the guarded arm could do little but withhold. Attack
-success still fell to 3.5%, because the two measurements ask different
-questions. The scope number asks whether the *authorised* value is
-re-derivable, which governs whether the task completes. Attack success asks
-whether the *attacker's* value reaches a tool, and withholding stops that
-whether or not anything is re-derivable.
+**Banking, 75% re-derivable: the boundary is close to free.** Attacks go to
+zero and *more* tasks complete than without it — a call re-derived from the
+user's own turn still goes out, where the baseline followed the injection and
+failed the task. That is the case people will quote.
 
-**Confinement is broad; completion is not.** Both statements are in the same
-tables, and only reading them together gives the right picture.
+**Slack, 27% re-derivable: it is expensive and it does not even finish the
+job.** Channel names and message recipients arrive from tool output, so there
+is usually nothing to re-derive from and the boundary can only withhold.
+Attack success falls by roughly two thirds rather than to zero, and the clean
+control — no injection anywhere, where a false rejection is the only thing that
+can show — drops from 14/21 to 5/21.
+
+That Slack row is the honest headline. This approach buys confinement in
+proportion to how much of the authorised state lives somewhere the attacker
+cannot write to, and where that share is low it charges most of the agent's
+usefulness for a partial defence. An application in that position should be
+putting values into `dialogue_state` (see above), not turning this on and
+hoping.
+
+### What the pass/fail numbers hide
+
+Withholding is not free even when utility survives. Thousands of proposed calls
+are withheld across the injected runs — `guard_stats.withheld` in each result
+file, printed as a total by `summarize.py` — so the agent retries heavily. That
+is real latency and real tokens, and AgentDojo's score does not measure either.
+
+### Why attack success beats what scope predicts
+
+36% re-derivable suggests the guarded arm can do little but withhold, yet
+attack success falls further than that. The two measurements ask different
+questions. Scope asks whether the *authorised* value is re-derivable, which
+governs whether the task completes. Attack success asks whether the
+*attacker's* value reaches a tool, and withholding stops that whether or not
+anything is re-derivable. **Confinement is broad; completion is not.**
+
+### Notes on how these were run
+
+- The guarded arm is re-measured on its own (`--arms evibind`) and each suite's
+  baseline is carried forward from its previous run, recorded as
+  `carried_forward` in the report. The baseline pipeline has no guard in it, so
+  a guard change cannot reach it; re-running it costs half the queue to
+  reproduce a number that cannot move. Sanity check on that: a workspace
+  baseline re-measured anyway landed at 87/240 utility and 70/240 attacks
+  against a saved 83 and 67 — about 2% of ordinary model nondeterminism.
+- Results carrying a `pre_annotation_fix` note in the table above predate the
+  adapter fixes in `docs/FINDINGS.md` §21, which stopped the guard governing
+  read-only tools and matching parameters by description. Those rows understate
+  utility. They are marked rather than quietly refreshed, because the budget
+  for this ran out before they could be re-measured.
+- Spend is metered per run (`--budget-usd`), and every result file carries the
+  token counts and dollar cost that produced it.

@@ -60,6 +60,12 @@ def _row(suite: str, model: str) -> dict | None:
         "withheld": stats.get("withheld"),
         "seen": stats.get("calls_seen"),
         "usd": (injected.get("usage") or {}).get("usd"),
+        # set by hand in a result file that predates the adapter fixes in
+        # FINDINGS section 21. A stale row is marked in the table rather than
+        # dropped: leaving it out would make the suite look narrower than it
+        # is, and leaving it unmarked would mix two different guards in one
+        # table.
+        "stale": bool(injected.get("pre_annotation_fix")),
     }
 
 
@@ -80,7 +86,7 @@ def main() -> None:
         clean = ("-" if row["clean_base"] is None else
                  f"{row['clean_base']} -> {row['clean_guard']}"
                  f" of {row['clean_cases']}")
-        return [row["suite"],
+        return [row["suite"] + (" *" if row["stale"] else ""),
                 f"{row['scope']}%",
                 f"{row['attack_base']} -> {row['attack_guard']}"
                 f" of {row['cases']}",
@@ -101,6 +107,11 @@ def main() -> None:
         print("-" * len(line))
         for row in table:
             print("  ".join(str(c).ljust(w) for c, w in zip(row, widths)))
+
+    if any(r["stale"] for r in rows):
+        print("\n\\* pre-annotation-fix run (FINDINGS section 21): the guard still "
+              "governed read-only\n  tools and matched parameters by description, "
+              "so this row understates utility.")
 
     withheld = sum(r["withheld"] or 0 for r in rows)
     seen = sum(r["seen"] or 0 for r in rows)
