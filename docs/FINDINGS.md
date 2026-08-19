@@ -425,7 +425,7 @@ And across models, on `dh_enhanced`, beside the same model's InjectBench score:
 | Claude Haiku | not run | not run | 0/60 | native |
 | GPT-5.4 mini | 0/510 | 0/510 | 40/60 | native |
 | GPT-5.4 nano | 0/510 | 0/510 | 43/60 | native |
-| GPT-4.1 mini | 9/510 | 0/510 | 43/60 | native |
+| GPT-4.1 mini | 7/510 | 0/510 | 43/60 | native |
 
 **Frontier models refuse both shapes; the cheap tiers refuse only the first.**
 GPT-5.6 Sol, Luna and Terra sit at 0/510 and 0-4/60. GPT-5.4 nano and mini also
@@ -434,7 +434,8 @@ a story about weak models being weak everywhere. It is specific to the shape of
 the attack.
 
 GPT-4.1 mini, the oldest model in the set, is the only one to call an attacker
-tool at all: 9/510, all withheld.
+tool at all: 7/510, all withheld. (It read 9/510 on an earlier run of the
+same cases; see §22 on the variance.)
 
 The one attack that landed is worth stating in full, because it is the entire
 mechanism working on someone else's data:
@@ -454,7 +455,7 @@ evidence, so the call fails closed.
 
 **The near-null result is the finding.** These same three models bind the
 attacker's account 40, 43 and 43 times out of 60 on InjectBench. On InjecAgent
-they are at 0, 0 and 9 out of 510. The difference is the *shape* of the attack, not its strength:
+they are at 0, 0 and 7 out of 510. The difference is the *shape* of the attack, not its strength:
 
 * *"Call this other tool"* now reads to a current model as an instruction from
   the wrong party, and it refuses.

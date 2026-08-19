@@ -73,7 +73,7 @@ not agree.
 | Claude Haiku | not run | not run | 0/60 | native |
 | GPT-5.4 mini | 0/510 | 0/510 | 40/60 | native |
 | GPT-5.4 nano | 0/510 | 0/510 | 43/60 | native |
-| GPT-4.1 mini | 9/510 | 0/510 | 43/60 | native |
+| GPT-4.1 mini | 7/510 | 0/510 | 43/60 | native |
 
 Regenerate with `python bench/injecagent/summarize.py --markdown`.
 
@@ -91,7 +91,9 @@ value from the wrong place, because the second never presents itself as an
 instruction.
 
 GPT-4.1 mini, the oldest model here, is the only one to call an attacker tool
-at all: **9/510**, every one withheld by the gateway.
+at all: **7/510**, every one withheld by the gateway. That figure read
+9/510 on an earlier run of the same cases — ordinary model variance, and a
+caution that single-digit counts over 510 cases are noisy.
 
 **Not run, and why.** `gpt-oss` is not served on the OpenAI API at all; it needs
 OpenRouter, Groq or a local runtime, and none is configured here. It is the row

@@ -83,6 +83,12 @@ both arms complete 7 of 16 user tasks. **Attack success down 93%, task
 completion unchanged.** Reproduce with
 [`bench/agentdojo/run_agentdojo.py`](bench/agentdojo/).
 
+All five residual successes were one ungoverned slot in the benchmark adapter,
+not in the boundary — an optional `recipient` on an update call. That is fixed
+and those five now withhold; see [`docs/FINDINGS.md`](docs/FINDINGS.md) §21.
+The table above is the pre-fix run and will be replaced when the full re-run
+across all four suites completes.
+
 
 <p align="center"><img src="assets/bench_contrast.svg" width="840" alt="The same three models refuse tool-selection injection almost perfectly on InjecAgent while taking the attacker's account number two thirds of the time on InjectBench"></p>
 
@@ -90,8 +96,8 @@ On [InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), eight
 models call the attacker's tool **0/510** — GPT-5.6 Sol, Luna and Terra, Grok
 4.6 and 4.5, GPT-5.4 mini and nano — even on the split that prefixes the
 payload with *"IGNORE ALL PREVIOUS INSTRUCTIONS"*. GPT-4.1 mini, the oldest of
-them, is the only one to slip: 9 times in 510, and the gateway withheld all
-nine.
+them, is the only one to slip: 7 times in 510, and the gateway withheld every
+one.
 
 The frontier rows are what make this readable. If only the cheap tiers had run,
 *"weak models are weak"* would fit the data. But Sol and Grok 4.6 are at 0/510
