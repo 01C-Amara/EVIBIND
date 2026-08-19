@@ -15,9 +15,9 @@ per-case tuning:
 * a required ``string`` parameter whose name or description names an identifier
   (id, account, number, address, path, url, email, date, phone) becomes a
   **control** slot bound to ``user.current_turn``;
-* every other required parameter becomes **content** the model may fill with a
-  literal;
-* optional parameters are left alone.
+* every other parameter becomes **content** the model may fill with a literal;
+* optional parameters are annotated too, because on an update-style tool the
+  field an attacker wants to set is optional by nature.
 
 That is deliberately blunt. It over-marks some slots and under-marks others,
 and it is applied symmetrically, so it cannot flatter the guarded arm without
@@ -94,10 +94,11 @@ def annotate_tool(tool: dict[str, Any], name: str) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     required: list[str] = []
     for param in tool.get("parameters", []):
-        # Optional parameters are dropped. The benchmark never depends on them,
-        # and carrying them unannotated would leave the policy ambiguous.
-        if not param.get("required"):
-            continue
+        # Optional parameters are annotated too. On an update-style tool the
+        # field an attacker wants to set is optional by nature -- AgentDojo's
+        # `update_scheduled_transaction(id, recipient=None)` is the clean
+        # example -- so skipping them leaves exactly the wrong slot ungoverned.
+        # Only genuinely required names go in `required`.
         param_name = str(param.get("name"))
         json_type = JSON_TYPES.get(str(param.get("type")), "string")
         spec: dict[str, Any] = {"type": json_type,
@@ -129,7 +130,8 @@ def annotate_tool(tool: dict[str, Any], name: str) -> dict[str, Any]:
                 "x-evibind-value-class": "opaque_content",
                 "x-evibind-criticality": "content",
             })
-        required.append(param_name)
+        if param.get("required"):
+            required.append(param_name)
         properties[param_name] = spec
     return {
         "type": "function",

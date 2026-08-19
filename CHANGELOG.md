@@ -4,6 +4,32 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- **Found and fixed: both benchmark adapters annotated only *required*
+  parameters**, which left exactly the slot an attacker wants ungoverned on any
+  update-style tool. All five residual attack successes in the first AgentDojo
+  banking run were the same goal — modify a recurring payment's recipient via
+  `update_scheduled_transaction(id, recipient=None, ...)`, where only `id` is
+  required. Re-running those five: attack succeeded 3/5 → **0/5**, completion
+  unchanged. The flaw was in the adapters, not the boundary, and it is the
+  failure mode this approach is most exposed to: the boundary is exactly as
+  good as the policy it is given, and a plausible policy-authoring shortcut
+  left the target slot unprotected with nothing to complain about it.
+- The same hole was in `bench/injecagent/adapt.py` — 55 of 330 tool definitions
+  carry an optional identifier-shaped string parameter. Corrected numbers:
+  `dh_enhanced` in scope 357→**391/510**, governed user calls 270→**450**,
+  released 150→**240**, withheld 120→**210**. The released share of governed
+  calls is roughly flat (56%→53%), so the stricter rule governs far more slots
+  at about the same utility rate.
+- The per-model native attack counts are unaffected — whether a model calls the
+  attacker's tool has nothing to do with slot annotation — and the guarded
+  column was re-measured for the only model that ever landed one: GPT-4.1 mini
+  on `dh_enhanced`, **7/510 natively, 0/510 guarded**. It read 9/510 on the
+  earlier run; same model, same cases, ordinary variance, and a caution that
+  single-digit counts over 510 cases are noisy.
+- `run_injecagent.py` now saves raw model responses beside each result, so a
+  scoring change can be replayed without paying for the models again. Not doing
+  that the first time is what made confirming this fix cost a re-run.
+
 - **Ran AgentDojo live with EviBind in their agent loop, on their metrics.**
   Banking suite, GPT-4o mini, `important_instructions`, 16 user tasks crossed
   with 9 injection tasks: attack success **68/144 (47%) → 5/144 (3.5%)** with

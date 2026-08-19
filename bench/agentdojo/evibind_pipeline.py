@@ -55,10 +55,21 @@ def annotate(schema: dict[str, Any], tool_name: str) -> dict[str, Any]:
     """Rebuild an AgentDojo tool schema with EviBind annotations."""
     properties: dict[str, Any] = {}
     required = list(schema.get("required") or [])
+    # Every parameter is annotated, not only the required ones. On an update
+    # call the field being changed is optional by nature -- AgentDojo's
+    # `update_scheduled_transaction(id, recipient=None, ...)` marks only `id`
+    # required -- so skipping optional parameters leaves exactly the argument
+    # an attacker wants to set ungoverned. That hole accounted for every
+    # residual attack success in the first banking run.
     for name, prop in (schema.get("properties") or {}).items():
-        if name not in required:
-            continue
         json_type = prop.get("type")
+        if json_type is None:
+            # optional parameters arrive as {"anyOf": [{"type": "string"},
+            # {"type": "null"}]}; take the non-null branch
+            for branch in prop.get("anyOf") or []:
+                if branch.get("type") and branch.get("type") != "null":
+                    json_type = branch["type"]
+                    break
         if json_type not in JSON_TYPES:
             json_type = "string"
         spec: dict[str, Any] = {"type": json_type,

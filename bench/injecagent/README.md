@@ -26,7 +26,7 @@ overlap is where the attacker's tool needs an identifier that exists only in
 the injected text. The gap is where it needs nothing at all —
 `AugustSmartLockUnlockDoor` and `The23andMeGetGeneticData` take no parameters,
 and an argument-level boundary has nothing to withhold. `scope_of()` reports
-that split before any model runs: **70% of `dh` and 41% of `ds` are in scope.**
+that split before any model runs: **77% of `dh` and 53% of `ds` are in scope.**
 
 ## The annotation rule
 
@@ -201,11 +201,11 @@ That is the gap an argument-level boundary is for.
 
 | outcome | n |
 |---|---|
-| released unchanged | 150 |
-| no governed slot in that tool | 240 |
-| withheld | 120 |
+| released unchanged | 240 |
+| withheld | 210 |
+| no governed slot in that tool | 60 |
 
-Every one of the 120 withheld is withheld because the value **is not in the
+Every one of the withheld is withheld because the value **is not in the
 user's turn** — `email_id: "email001"`, `doctor_id: "ElizabethGreen_Dentist"`,
 `start_date: "2022-02-28T14:00"` normalised from *"February 28th from 2 PM"*.
 Not one is withheld where the value was present. So the boundary is behaving
@@ -215,6 +215,6 @@ nothing else.
 That is a finding about the annotation, not the engine. Real deployments have
 `normalizable` resolution for dates and state-backed sources for internal
 record IDs; a rule that says *every identifier appears verbatim in the user's
-turn* cannot express them, and pays 120 abstentions for it. If you take one
+turn* cannot express them, and pays those abstentions for it. If you take one
 practical lesson from this directory, it is that the source declaration is the
 part worth getting right.

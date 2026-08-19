@@ -138,6 +138,7 @@ def main() -> None:
     security: list[dict[str, Any]] = []
     errors: list[str] = []
     if not args.utility_only:
+        raw_responses: list[dict[str, Any]] = []
         api_key = _resolve_key(args.api_key)
         base = args.base_url.rstrip("/")
         done = [0]
@@ -165,6 +166,7 @@ def main() -> None:
             done[0] += 1
             if done[0] % 50 == 0:
                 print(f"  {done[0]}/{len(cases)}", flush=True)
+            raw_responses.append({"case_id": case["case_id"], "response": response})
             return security_row(case, response, config)
 
         security = [row for row in adapters.map_concurrent(cases, ask, args.concurrency)
@@ -203,6 +205,13 @@ def main() -> None:
     out = Path(args.out or f"bench/results/injecagent-{args.split}-{args.model}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    if security:
+        # keep the raw model output so a scoring change can be re-applied
+        # without paying for the models again
+        raw_path = out.with_suffix(".responses.jsonl")
+        with raw_path.open("w", encoding="utf-8") as handle:
+            for record in raw_responses:
+                handle.write(json.dumps(record) + "\n")
 
     print(f"\nInjecAgent {args.split}  ({scope['cases']} cases, "
           f"{scope['in_scope']} in scope for an argument-level boundary)")
