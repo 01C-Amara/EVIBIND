@@ -36,7 +36,8 @@ JOBS: tuple[tuple[str, bool], ...] = (
 
 
 def run_one(python: str, suite: str, injected: bool, model: str,
-            remaining: float, prices: tuple[float, float]) -> dict | None:
+            remaining: float, prices: tuple[float, float],
+            arms: list[str] | None = None) -> dict | None:
     tag = "" if injected else "-clean"
     out = REPO / "bench" / "results" / f"agentdojo-{suite}{tag}-{model}.json"
     cmd = [python, str(HERE / "run_agentdojo.py"),
@@ -46,6 +47,8 @@ def run_one(python: str, suite: str, injected: bool, model: str,
            "--out", str(out)]
     if not injected:
         cmd.append("--no-injections")
+    if arms:
+        cmd += ["--arms", *arms]
     print(f"\n=== {suite}{tag} (budget left ${remaining:.2f}) ===", flush=True)
     proc = subprocess.run(cmd, cwd=str(REPO), text=True,
                           capture_output=True, encoding="utf-8", errors="replace")
@@ -63,6 +66,13 @@ def run_one(python: str, suite: str, injected: bool, model: str,
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--budget-usd", type=float, required=True)
+    parser.add_argument("--arms", nargs="*", default=None,
+                        choices=["baseline", "evibind"],
+                        help="passed through to run_agentdojo.py. `--arms evibind` "
+                             "re-measures only the guarded arm after a guard "
+                             "change, carrying each suite's saved baseline "
+                             "forward, which roughly halves the cost of the "
+                             "queue")
     parser.add_argument("--models", nargs="+",
                         default=["gpt-4o-mini-2024-07-18"],
                         help="run each model in turn against the same "
@@ -97,7 +107,8 @@ def main() -> None:
                 stop = True
                 break
             report = run_one(args.python, suite, injected, model, remaining,
-                             (args.input_per_1m, args.output_per_1m))
+                             (args.input_per_1m, args.output_per_1m),
+                             args.arms)
             if report is None:
                 continue
             usage = report.get("usage") or {}
