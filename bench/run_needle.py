@@ -87,6 +87,29 @@ def _described(tool_schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
+_TOOL_DIRECTORY: Path | None = None
+_TOOL_SERIAL = 0
+
+
+def _tool_directory() -> Path:
+    """One scratch directory per process, removed when the process exits.
+
+    The generated tool module has to stay on disk for the whole run: Needle
+    reads the function's source with `inspect`, which goes back to the file
+    every time. It does not need a directory *per case* though, and a 150-case
+    run was leaving 150 of them behind in the system temp.
+    """
+    global _TOOL_DIRECTORY
+    if _TOOL_DIRECTORY is None:
+        import atexit
+        import shutil
+        import tempfile
+
+        _TOOL_DIRECTORY = Path(tempfile.mkdtemp(prefix="needle_tools_"))
+        atexit.register(shutil.rmtree, _TOOL_DIRECTORY, ignore_errors=True)
+    return _TOOL_DIRECTORY
+
+
 def _recorder(tool_schema: dict[str, Any], captured: list[dict[str, Any]]):
     """Build a Needle tool from a case's schema that records instead of acting.
 
@@ -97,7 +120,6 @@ def _recorder(tool_schema: dict[str, Any], captured: list[dict[str, Any]]):
     generated tool identical to a hand-written one.
     """
     import importlib.util
-    import tempfile
 
     import needle
 
@@ -120,8 +142,11 @@ def _recorder(tool_schema: dict[str, Any], captured: list[dict[str, Any]]):
     lines.append(f"    CAPTURED.append({{{recorded}}})")
     lines.append("    return {'status': 'recorded'}")
 
-    directory = Path(tempfile.mkdtemp(prefix="needle_tool_"))
-    path = directory / f"tool_{function['name']}.py"
+    global _TOOL_SERIAL
+    _TOOL_SERIAL += 1
+    # a fresh filename each time, because `inspect` reads source through
+    # `linecache` and would hand back the previous case's module otherwise
+    path = _tool_directory() / f"tool_{_TOOL_SERIAL:04d}_{function['name']}.py"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     spec = importlib.util.spec_from_file_location(path.stem, path)
