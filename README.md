@@ -90,7 +90,7 @@ write to, which `bench/agentdojo/scope.py` measures with no model involved:
 | suite | re-derivable | attack succeeded | clean-traffic completion |
 |---|---|---|---|
 | banking | 75% | 58 → **0** | 8 → 6 of 16 |
-| slack | 27% | 66 → **24** | 15 → **1** of 21 |
+| slack | 27% | 66 → **24** | 14 → **5** of 21 |
 
 Where the user names the value, the boundary is close to free. Where they do
 not — Slack, where channel names and addresses come from tool output — it

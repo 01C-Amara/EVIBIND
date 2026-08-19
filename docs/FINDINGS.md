@@ -839,6 +839,78 @@ future scoring change can be replayed without paying for the models again. That
 is the mistake this section cost: the first run kept only verdicts, so
 confirming the fix meant re-running.
 
+## 23. Four suites, and the number that predicts them
+
+§19 reported the banking suite and titled itself "task completion unchanged".
+Three more suites do not support that, and the shape of the disagreement is the
+useful part.
+
+| suite | re-derivable | attack base → guarded | completed base → guarded | clean base → guarded |
+|---|---|---|---|---|
+| banking | 75% | 58 → **0** of 144 | 53 → **58** | 8 → 6 of 16 |
+| workspace * | 50% | 67 → 15 of 240 | 83 → 82 | 29 → 16 of 40 |
+| travel * | 50% | 28 → 14 of 140 | 68 → 52 | 10 → 9 of 20 |
+| slack | 27% | 66 → **24** of 105 | 57 → **20** | 14 → **5** of 21 |
+
+`*` predates the §21 adapter fixes; see the end of this section.
+
+The re-derivable column is §17's scope measurement — the share of that suite's
+critical argument values the user actually wrote, computed from AgentDojo's own
+ground-truth calls with no model involved. It was meant only as a feasibility
+estimate. It turns out to predict the trade.
+
+**Banking, 75%: the boundary is close to free.** Attacks go to zero and
+completion *rises*, 53 → 58. That is not a rounding artefact — a call
+re-derived from the user's own turn still goes out, while the baseline followed
+the injection and failed the task. Confinement and utility point the same way
+here.
+
+**Slack, 27%: it is expensive and it does not even finish the job.** Channel
+names and message recipients arrive from tool output, so there is usually
+nothing to re-derive from and the boundary can only withhold. Attack success
+falls by about two thirds rather than to zero, and the clean control — no
+injection anywhere, so a false rejection is the only thing that can move it —
+goes 14/21 → 5/21. Roughly two thirds of the agent's unattacked usefulness,
+spent on a partial defence.
+
+### What this changes about the claim
+
+Not the guarantee: no attacker-controlled value reached a critical slot in any
+suite, and that is what §19's security column was really measuring. What it
+changes is the *price*. The honest statement is:
+
+> Confinement is broad, because withholding stops the attacker's value whether
+> or not anything is re-derivable. Completion is bought, and its price is set
+> by how much of the authorised state lives somewhere the attacker cannot
+> write to.
+
+An application sitting at Slack's end of that range should be moving values
+into `dialogue_state` — the trusted channel described in
+`bench/agentdojo/README.md` — rather than switching this on and hoping. That is
+a deployment instruction, and it is the one §19 would have let a reader skip.
+
+### Two things this measurement cost, recorded
+
+The workspace and travel rows are pre-§21: the guard still governed read-only
+tools and matched parameters by description, so they understate utility. They
+are marked rather than refreshed because the re-run to replace them hit the
+spend ceiling partway through workspace's guarded arm. Marked-and-wrong is
+recoverable; silently mixing two different guards in one table is not.
+
+Two harness bugs surfaced on the way, both in the runner rather than the
+boundary, and both the kind that only appear at this scale:
+
+1. A single `openai.APIConnectionError` killed the workspace guarded arm two
+   thirds of the way through 240 cases. Nothing was written until *both* arms
+   finished, so a completed baseline arm — about two hours of measurement —
+   went with it. The report is now saved after every arm, and the client
+   retries eight times with a 120s timeout.
+2. Re-running one arm and carrying the other forward, then aborting, wrote a
+   file containing only the carried arm. The previous guarded result was
+   deleted by the attempt to improve it, and survived only because it was
+   committed. An aborted arm now keeps the previous one and says so in
+   `kept_after_failed_rerun`.
+
 ## 24. A 45M model behind the boundary
 
 Cactus [Needle 2](https://cactuscompute.com/needle) is a 45M-parameter
