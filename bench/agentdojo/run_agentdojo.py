@@ -78,6 +78,43 @@ def _prune_unreadable(logdir: Path) -> int:
     return removed
 
 
+def _harden_checkers(suite, counters: dict[str, int]) -> None:
+    """Make AgentDojo's own utility/security checks fail closed, not explode.
+
+    Several task checkers read the post-environment without guarding for the
+    action never having happened. `slack/user_tasks.py` does
+    ``post_environment.web.web_content[self.COMPANY_URL]`` — fine when the agent
+    posted the page, a `KeyError` when a defence withheld `post_webpage`. The
+    exception propagates out of `benchmark_suite_with_injections` and takes the
+    whole suite with it, so a defence that blocks anything cannot be measured.
+
+    A checker that raises because the action did not happen is reporting a task
+    that did not complete, so it is counted as False. The count is reported
+    rather than hidden, because silently converting errors into failures is how
+    a defence flatters itself.
+    """
+    def wrap(task, attribute: str) -> None:
+        original = getattr(task, attribute, None)
+        if original is None or getattr(original, "_evibind_hardened", False):
+            return
+
+        def hardened(*args, **kwargs):
+            try:
+                return original(*args, **kwargs)
+            except Exception:  # noqa: BLE001 - a raising checker means "no"
+                counters[attribute] = counters.get(attribute, 0) + 1
+                return False
+
+        hardened._evibind_hardened = True  # type: ignore[attr-defined]
+        setattr(task, attribute, hardened)
+
+    for task in list(suite.user_tasks.values()) + list(suite.injection_tasks.values()):
+        wrap(task, "utility")
+        wrap(task, "security")
+        wrap(task, "utility_from_traces")
+        wrap(task, "security_from_traces")
+
+
 def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None,
                    meter: UsageMeter | None = None):
     import openai
@@ -139,6 +176,8 @@ def main() -> None:
     if pruned:
         print(f"dropped {pruned} unreadable cache file(s) from {logdir}")
     suite = get_suite("v1", args.suite)
+    checker_errors: dict[str, int] = {}
+    _harden_checkers(suite, checker_errors)
     report: dict[str, object] = {
         "benchmark": "AgentDojo",
         "source": "https://github.com/ethz-spylab/agentdojo (MIT)",
@@ -193,6 +232,10 @@ def main() -> None:
         if guard is not None:
             print(f"          guard: {guard.stats}")
 
+    report["checker_errors"] = dict(checker_errors)
+    if checker_errors:
+        print(f"AgentDojo task checkers raised and were counted as failures: "
+              f"{checker_errors}")
     out = Path(args.out or f"bench/results/agentdojo-{args.suite}-{args.model}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     report["usage"] = meter.summary()
