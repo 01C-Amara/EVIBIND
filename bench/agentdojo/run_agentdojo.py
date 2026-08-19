@@ -119,7 +119,14 @@ def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None,
                    meter: UsageMeter | None = None):
     import openai
 
-    client = openai.OpenAI(api_key=api_key)
+    # A single transient connection error used to end a whole arm: the
+    # workspace guarded arm died two thirds of the way through a 240-case run
+    # on one `APIConnectionError`, taking the baseline arm's results with it
+    # because nothing is written until both arms finish. The SDK default of 2
+    # retries is not enough for a run that makes thousands of calls over hours,
+    # and the default timeout is long enough that a half-open socket stalls
+    # everything behind it.
+    client = openai.OpenAI(api_key=api_key, max_retries=8, timeout=120.0)
     if meter is not None:
         client = MeteredOpenAI(client, meter)
     llm = OpenAILLM(client, model)
@@ -198,6 +205,17 @@ def main() -> None:
     report["pricing"] = {"input_per_1m": args.input_per_1m,
                          "output_per_1m": args.output_per_1m}
 
+    def _save() -> None:
+        """Write what we have so far.
+
+        Called after every arm rather than once at the end. The workspace run
+        completed its baseline arm, lost the connection during the guarded arm,
+        and wrote nothing at all - two hours and about a dollar of a completed
+        measurement discarded because the arm after it failed.
+        """
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
     out = Path(args.out
                or f"bench/results/agentdojo-{args.suite}-{args.model}.json")
 
@@ -235,6 +253,7 @@ def main() -> None:
             print(f"{arm:9s} ABORTED: {exc}")
             report["aborted"] = {"arm": arm, "reason": str(exc),
                                  "usage": meter.summary()}
+            _save()
             break
         summary = summarise(results)
         summary['usage_after_arm'] = meter.summary()
@@ -245,6 +264,7 @@ def main() -> None:
             # there is no attack in this arm, so the security field is noise
             summary.pop("attack_succeeded", None)
         report["arms"][arm] = summary
+        _save()
         line = f"{arm:9s} utility {summary['utility_passed']}/{summary['cases']}"
         if "attack_succeeded" in summary:
             line += f"   attack succeeded {summary['attack_succeeded']}/{summary['cases']}"
