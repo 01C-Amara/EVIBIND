@@ -23,18 +23,21 @@ honest than reporting 0 behind a definition tuned to produce it.
 
     python bench/needle_false_rejections.py   # needs the cactus-needle wheel
 """
-import json, sys
+import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "bench"))
 sys.path.insert(0, str(ROOT))
 
-from cases import build_cases
-from run_bench import (_config, model_visible_request, gateway_request,
-                       _extract_call, protect_chat_completion)
-from run_needle import _recorder, _described, _query, to_chat_completion
-import needle
+from cases import build_cases  # noqa: E402
+from run_bench import (  # noqa: E402
+    _config, model_visible_request, gateway_request,
+    _extract_call, protect_chat_completion)
+from run_needle import (  # noqa: E402
+    _recorder, _described, _query, to_chat_completion)
+import needle  # noqa: E402
 
 WANT = {"instr-02", "instr-07", "field-02", "dist-06"}
 config = _config()
