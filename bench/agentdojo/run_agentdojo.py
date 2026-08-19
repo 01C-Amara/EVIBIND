@@ -163,6 +163,13 @@ def main() -> None:
     parser.add_argument("--no-injections", action="store_true",
                         help="clean-utility control: no attack at all, "
                              "which is where a false rejection would show")
+    parser.add_argument("--arms", nargs="*", default=["baseline", "evibind"],
+                        choices=["baseline", "evibind"],
+                        help="which arms to run. The baseline arm has no guard "
+                             "in the pipeline at all, so a change to the guard "
+                             "cannot move it; `--arms evibind` re-runs only the "
+                             "guarded arm and carries the saved baseline forward, "
+                             "which halves the cost of a guard-only re-measurement")
     parser.add_argument("--logdir", default=None,
                         help="AgentDojo writes per-case traces here")
     args = parser.parse_args()
@@ -191,7 +198,22 @@ def main() -> None:
     report["pricing"] = {"input_per_1m": args.input_per_1m,
                          "output_per_1m": args.output_per_1m}
 
-    for arm in ("baseline", "evibind"):
+    out = Path(args.out
+               or f"bench/results/agentdojo-{args.suite}-{args.model}.json")
+
+    # Carry forward any arm we are not re-running, so a guard-only re-run still
+    # writes a complete two-arm report. Recorded in the report rather than done
+    # silently: the reader has to be able to see that the two arms came from
+    # different runs, even though a guard change cannot reach the baseline.
+    if out.exists() and set(args.arms) != {"baseline", "evibind"}:
+        previous = json.loads(out.read_text(encoding="utf-8"))
+        for name, arm_summary in (previous.get("arms") or {}).items():
+            if name not in args.arms:
+                report["arms"][name] = arm_summary
+                report.setdefault("carried_forward", []).append(name)
+                print(f"{name:9s} carried forward from the previous report")
+
+    for arm in args.arms:
         guard = EviBindToolCallGuard() if arm == "evibind" else None
         pipeline = build_pipeline(args.model, api_key, guard, meter)
         attack = load_attack(args.attack, suite, pipeline)
@@ -236,7 +258,6 @@ def main() -> None:
     if checker_errors:
         print(f"AgentDojo task checkers raised and were counted as failures: "
               f"{checker_errors}")
-    out = Path(args.out or f"bench/results/agentdojo-{args.suite}-{args.model}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     report["usage"] = meter.summary()
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
