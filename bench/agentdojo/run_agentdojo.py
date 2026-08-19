@@ -177,6 +177,17 @@ def main() -> None:
                              "cannot move it; `--arms evibind` re-runs only the "
                              "guarded arm and carries the saved baseline forward, "
                              "which halves the cost of a guard-only re-measurement")
+    parser.add_argument("--resume", action="store_true",
+                        help="reuse AgentDojo's cached per-case traces instead "
+                             "of re-running every case. A guarded arm that "
+                             "aborted on the spend ceiling had already "
+                             "completed 235 of 240 cases, and paying for all "
+                             "240 again to recover the last five is the "
+                             "expensive way to do it. Only safe when every "
+                             "cached trace was produced by the code you are "
+                             "measuring - the cache does not know the guard "
+                             "changed, so purge it after any change to "
+                             "evibind_pipeline.py")
     parser.add_argument("--logdir", default=None,
                         help="AgentDojo writes per-case traces here")
     args = parser.parse_args()
@@ -202,6 +213,7 @@ def main() -> None:
     meter = UsageMeter(input_per_1m=args.input_per_1m,
                        output_per_1m=args.output_per_1m,
                        ceiling_usd=args.budget_usd)
+    report["resumed_from_cache"] = bool(args.resume)
     report["pricing"] = {"input_per_1m": args.input_per_1m,
                          "output_per_1m": args.output_per_1m}
 
@@ -245,11 +257,13 @@ def main() -> None:
             if args.no_injections:
                 # this one takes no verbose flag
                 results = benchmark_suite_without_injections(
-                    pipeline, suite, logdir=logdir, force_rerun=True,
+                    pipeline, suite, logdir=logdir,
+                    force_rerun=not args.resume,
                     user_tasks=args.user_tasks)
             else:
                 results = benchmark_suite_with_injections(
-                    pipeline, suite, attack, logdir=logdir, force_rerun=True,
+                    pipeline, suite, attack, logdir=logdir,
+                    force_rerun=not args.resume,
                     user_tasks=args.user_tasks,
                     injection_tasks=args.injection_tasks, verbose=False)
         except BudgetExceeded as exc:

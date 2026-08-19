@@ -37,7 +37,8 @@ JOBS: tuple[tuple[str, bool], ...] = (
 
 def run_one(python: str, suite: str, injected: bool, model: str,
             remaining: float, prices: tuple[float, float],
-            arms: list[str] | None = None) -> dict | None:
+            arms: list[str] | None = None,
+            resume: bool = False) -> dict | None:
     tag = "" if injected else "-clean"
     out = REPO / "bench" / "results" / f"agentdojo-{suite}{tag}-{model}.json"
     cmd = [python, str(HERE / "run_agentdojo.py"),
@@ -49,6 +50,8 @@ def run_one(python: str, suite: str, injected: bool, model: str,
         cmd.append("--no-injections")
     if arms:
         cmd += ["--arms", *arms]
+    if resume:
+        cmd.append("--resume")
     print(f"\n=== {suite}{tag} (budget left ${remaining:.2f}) ===", flush=True)
     proc = subprocess.run(cmd, cwd=str(REPO), text=True,
                           capture_output=True, encoding="utf-8", errors="replace")
@@ -66,6 +69,10 @@ def run_one(python: str, suite: str, injected: bool, model: str,
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--budget-usd", type=float, required=True)
+    parser.add_argument("--resume", action="store_true",
+                        help="passed through to run_agentdojo.py; reuses cached "
+                             "per-case traces. Purge the cache after any guard "
+                             "change first")
     parser.add_argument("--arms", nargs="*", default=None,
                         choices=["baseline", "evibind"],
                         help="passed through to run_agentdojo.py. `--arms evibind` "
@@ -108,7 +115,7 @@ def main() -> None:
                 break
             report = run_one(args.python, suite, injected, model, remaining,
                              (args.input_per_1m, args.output_per_1m),
-                             args.arms)
+                             args.arms, args.resume)
             if report is None:
                 continue
             usage = report.get("usage") or {}
