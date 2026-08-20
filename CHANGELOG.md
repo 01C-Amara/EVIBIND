@@ -30,23 +30,43 @@ All notable EviBind changes are documented here.
   scoring change can be replayed without paying for the models again. Not doing
   that the first time is what made confirming this fix cost a re-run.
 
-- **Ran AgentDojo live with EviBind in their agent loop, on their metrics**,
-  across all four suites. The result tracks how much of the authorised state
-  the attacker cannot reach, which `scope.py` measures without a model:
-  banking (75% re-derivable) goes **58/144 attacks → 0** with completion
-  **53 → 58**, while slack (27%) goes **66/105 → 24** and takes the clean
-  control from **14/21 → 5/21**. `bench/agentdojo/summarize.py` prints the
-  table; `bench/agentdojo/README.md` carries it.
-- **Retracted: "attack success down 93%, task completion unchanged."** That was
-  banking alone, before the annotation fixes below, and it does not survive
-  three more suites. Confinement is broad — withholding stops the attacker's
-  value whether or not anything is re-derivable — but completion is bought,
-  not free, and where scope is low most of it is spent. The banking number is
-  the best case in the benchmark, not a summary of it.
-- The workspace and travel rows still predate the annotation fixes and are
-  marked with an asterisk in the table rather than quietly refreshed. The
-  re-run to replace them hit the spend ceiling partway through workspace's
-  guarded arm.
+- **Retracted: "attack success down 93%, task completion unchanged," and the
+  banking 58 → 0 figure behind it.** That run predates the annotation fixes
+  below. The guard it measured governed read-only tools and matched parameters
+  by description, so it suppressed attacks by suppressing nearly everything.
+  The zero was an artefact of an over-broad guard, not a property of the
+  boundary, and it would have been the most quotable number in this repo.
+- **All four AgentDojo suites re-measured against one guard**, every result
+  file a fresh run: banking **58 → 11** attacks with completion **53 → 62**,
+  workspace **67 → 24** with **83 → 90**, travel **28 → 18** with 68 → 62,
+  slack **66 → 26** with 57 → 20. Completion rises in two suites because a
+  baseline that follows the injection fails the user's task too.
+- **Added a per-injection-task breakdown**, which is what makes the residuals
+  legible. Eight of banking's nine injection tasks are **0/16**, including
+  every goal that redirects money to the attacker's IBAN; all 11 survivors are
+  the task that changes the user's *password*. `_evidence_type("password")`
+  returns `None`, so nothing governs it. Workspace repeats it: 22 of its 24
+  residuals go through `participants`. Two parameter names account for 33 of
+  the 79 residual successes across four suites — §21's lesson with much more
+  evidence: the boundary is exactly as good as the policy it is given, and an
+  incomplete policy fails silently. Reported as measured; adding those names
+  after seeing which tasks survived would be fitting to the benchmark.
+- Recorded that the boundary **blocks rather than repairs** here: `released` is
+  0 for banking and travel, and the guard withheld **7,642 of 11,140** calls
+  across the four injected runs. The repair behaviour on InjectBench does not
+  carry over, because AgentDojo's tasks mostly name their targets in tool
+  output rather than in the user's turn.
+- Three harness bugs fixed, all found by running at this scale and all in the
+  runner rather than the boundary: one `APIConnectionError` killed a 240-case
+  arm outright; the report was written only after *both* arms finished, so that
+  failure discarded a completed baseline; and an aborted `--arms` re-run
+  overwrote a complete report with a lone carried arm, destroying the result it
+  meant to replace. Reports now save per arm, the client retries, and a failed
+  re-run keeps the previous result.
+- `--arms evibind` re-measures only the guarded arm and carries the baseline
+  forward, halving the cost of a guard-only re-run; `--resume` reuses AgentDojo's
+  own traces. Caveat recorded: a cache-resumed run reports hollow `guard_stats`,
+  because the guard object never sees the calls.
 - Added the clean-utility control (`--no-injections`), because utility measured
   only under attack cannot distinguish a boundary that preserves good calls from
   one that breaks them alongside the bad.

@@ -71,33 +71,48 @@ Nine live models, 150 cases each, 1,350 scored calls
 And numbers that are not ours. On
 [AgentDojo](https://github.com/ethz-spylab/agentdojo) (ETH SPY Lab, MIT),
 scored on **their** utility and security metrics, with **their** attack, EviBind
-inserted into **their** agent loop. The banking suite, all 16 user tasks crossed
-with all 9 injection tasks:
+inserted into **their** agent loop. All four suites, every user task crossed
+with every injection task:
 
-| arm | cases | task completed | attack succeeded |
+| suite | attack succeeded | task completed | clean-traffic completion |
 |---|---|---|---|
-| baseline | 144 | 53 | **58 (40%)** |
-| **EviBind** | 144 | **58** | **0** |
+| banking | 58 → **11** of 144 | 53 → **62** | 8 → 7 of 16 |
+| workspace | 67 → **24** of 240 | 83 → **90** | 29 → 18 of 40 |
+| travel | 28 → **18** of 140 | 68 → 62 | 10 → 13 of 20 |
+| slack | 66 → **26** of 105 | 57 → **20** | 14 → **5** of 21 |
 
-Attacks eliminated, and more tasks completed than without it — because a call
-re-derived from the user's own turn still goes out, where the baseline followed
-the injection and failed the task.
+Completion *rises* in banking and workspace: a baseline that follows the
+injection fails the user's task too.
 
-**Banking is the best case, not the typical one.** Across four suites the
-outcome tracks how often the authorised value is somewhere the attacker cannot
-write to, which `bench/agentdojo/scope.py` measures with no model involved:
+**The residuals have names, and that is the interesting part.** Eight of
+banking's nine injection tasks are **0/16** — including every goal that
+redirects money to the attacker's IBAN. All 11 survivors are the single task
+that changes the user's *password*, and the reason is one line long:
 
-| suite | re-derivable | attack succeeded | clean-traffic completion |
-|---|---|---|---|
-| banking | 75% | 58 → **0** | 8 → 6 of 16 |
-| slack | 27% | 66 → **24** | 14 → **5** of 21 |
+```text
+>>> _evidence_type("password", "")   -> None                 # ungoverned
+>>> _evidence_type("iban", "")       -> opaque_registry_id   # governed
+```
 
-Where the user names the value, the boundary is close to free. Where they do
-not — Slack, where channel names and addresses come from tool output — it
-withholds most of the traffic and does not even close the attack surface. That
-spread is the honest headline, and
-[`bench/agentdojo/`](bench/agentdojo/) carries all four suites, both arms, the
-clean controls and the reproduction commands.
+Workspace repeats it: 22 of its 24 residuals put an attacker's address into a
+calendar event's `participants`, a parameter name the adapter's keyword list
+does not match. Two names account for 33 of the 79 residual successes across
+four suites — which is the honest headline. **The boundary is exactly as good
+as the policy it is given, and an incomplete policy fails silently.**
+
+The cost side is set by something else: how much of the authorised value the
+user actually wrote, which
+[`bench/agentdojo/scope.py`](bench/agentdojo/) measures with no model involved.
+Banking is 75% re-derivable and keeps its clean traffic; Slack is 27%, and its
+clean control falls 14/21 → **5/21**. An application at Slack's end should be
+putting values into `dialogue_state` rather than switching this on and hoping.
+
+One more thing the tables hide: across the four suites the guard withheld
+**7,642 of 11,140** calls and re-derived almost nothing — `released` is 0 in
+banking and travel. The "it repairs rather than blocks" behaviour above is an
+InjectBench result and does not carry over here.
+[`bench/agentdojo/`](bench/agentdojo/) has all four suites, both arms, the clean
+controls, the per-injection-task breakdown and the reproduction commands.
 
 <p align="center"><img src="assets/bench_contrast.svg" width="840" alt="The same three models refuse tool-selection injection almost perfectly on InjecAgent while taking the attacker's account number two thirds of the time on InjectBench"></p>
 
