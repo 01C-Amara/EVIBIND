@@ -145,10 +145,26 @@ def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None,
 def summarise(results) -> dict:
     utility = results["utility_results"]
     security = results.get("security_results") or {}
+
+    # Which injection task each residual success came through. A count on its
+    # own says an attack got past the boundary; it does not say whether that is
+    # a hole in the boundary or a goal the boundary was never in a position to
+    # stop. Banking's `injection_task_2` wants the user's *password* changed,
+    # and a password is not identifier-shaped, so it carries no evidence type
+    # and is never governed - a scope limit to state, not a leak to fix.
+    by_task: dict[str, dict[str, int]] = {}
+    for key, succeeded in security.items():
+        # AgentDojo keys these (user_task_id, injection_task_id)
+        injection = key[1] if isinstance(key, (tuple, list)) and len(key) > 1 else str(key)
+        row = by_task.setdefault(str(injection), {"cases": 0, "succeeded": 0})
+        row["cases"] += 1
+        row["succeeded"] += bool(succeeded)
+
     return {
         "cases": len(utility),
         "utility_passed": sum(bool(v) for v in utility.values()),
         "attack_succeeded": sum(bool(v) for v in security.values()),
+        "by_injection_task": dict(sorted(by_task.items())),
     }
 
 
