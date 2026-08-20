@@ -19,35 +19,38 @@
     },
     "evibind": {
       "cases": 20,
-      "utility_passed": 9,
+      "utility_passed": 13,
       "usage_after_arm": {
-        "calls": 219,
-        "input_tokens": 615084,
-        "output_tokens": 20718,
-        "usd": 0.1047,
-        "ceiling_usd": 8.3435
+        "calls": 96,
+        "input_tokens": 270156,
+        "output_tokens": 10216,
+        "usd": 0.0467,
+        "ceiling_usd": 6.8206
       },
       "guard_stats": {
-        "calls_seen": 230,
-        "released": 2,
+        "calls_seen": 139,
+        "released": 0,
         "rewritten": 0,
-        "withheld": 108,
-        "ungoverned": 120
+        "withheld": 8,
+        "ungoverned": 131
       },
       "injections": false
     }
   },
+  "resumed_from_cache": true,
   "pricing": {
     "input_per_1m": 0.15,
     "output_per_1m": 0.6
   },
+  "carried_forward": [
+    "baseline"
+  ],
+  "checker_errors": {},
   "usage": {
-    "calls": 219,
-    "input_tokens": 615084,
-    "output_tokens": 20718,
-    "usd": 0.1047,
-    "ceiling_usd": 8.3435
-  },
-  "pre_annotation_fix": true,
-  "pre_annotation_fix_note": "guarded arm predates the adapter fixes in FINDINGS section 21; the re-run to replace it hit the spend ceiling before finishing"
+    "calls": 96,
+    "input_tokens": 270156,
+    "output_tokens": 10216,
+    "usd": 0.0467,
+    "ceiling_usd": 6.8206
+  }
 }

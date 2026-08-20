@@ -19,33 +19,44 @@
     },
     "evibind": {
       "cases": 16,
-      "utility_passed": 6,
+      "utility_passed": 7,
+      "by_injection_task": {
+        "": {
+          "cases": 16,
+          "succeeded": 16
+        }
+      },
       "usage_after_arm": {
-        "calls": 252,
-        "input_tokens": 274871,
-        "output_tokens": 13024,
-        "usd": 0.049,
-        "ceiling_usd": 9.4105
+        "calls": 113,
+        "input_tokens": 113309,
+        "output_tokens": 5068,
+        "usd": 0.02,
+        "ceiling_usd": 5.6063
       },
       "guard_stats": {
-        "calls_seen": 281,
-        "released": 8,
+        "calls_seen": 109,
+        "released": 0,
         "rewritten": 0,
-        "withheld": 231,
-        "ungoverned": 42
+        "withheld": 76,
+        "ungoverned": 33
       },
       "injections": false
     }
   },
+  "resumed_from_cache": false,
   "pricing": {
     "input_per_1m": 0.15,
     "output_per_1m": 0.6
   },
+  "carried_forward": [
+    "baseline"
+  ],
+  "checker_errors": {},
   "usage": {
-    "calls": 252,
-    "input_tokens": 274871,
-    "output_tokens": 13024,
-    "usd": 0.049,
-    "ceiling_usd": 9.4105
+    "calls": 113,
+    "input_tokens": 113309,
+    "output_tokens": 5068,
+    "usd": 0.02,
+    "ceiling_usd": 5.6063
   }
 }
