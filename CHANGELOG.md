@@ -4,6 +4,20 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+### Repository and release engineering
+
+- Separate the stable product path from the artifact-versioned research path in
+  the root documentation and architecture contract.
+- Add deterministic mechanism reproduction entry points and a version-neutral
+  paper-bundle verifier with path, manifest, digest, PDF, and claim-audit checks.
+- Pin the current v8 evidence archive and canonical paper digests in a small
+  checked-in release record while keeping the 220-file bundle out of Git.
+- Add a secret-safe `.env.example`, Docker context exclusions, typed-package
+  marker, package metadata, clean-wheel checks, archive hygiene, and Python 3.13
+  CI coverage.
+- Discover unavailable paper-only analysis modules per test instead of silently
+  skipping every research-script test when the `scripts` package is partial.
+
 - **Found and fixed: both benchmark adapters annotated only *required*
   parameters**, which left exactly the slot an attacker wants ungoverned on any
   update-style tool. All five residual attack successes in the first AgentDojo

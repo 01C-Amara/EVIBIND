@@ -1,540 +1,257 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="EviBind — evidence-bound tool calls" width="420">
+  <img src="assets/logo.svg" width="360" alt="EviBind">
 </p>
 
 <p align="center">
-  <b>An argument-level firewall for LLM tool calls.</b><br>
-  Untrusted content can propose; only trusted replay materializes an executable critical value.
+  Authenticated evidence binding for fail-closed LLM tool execution.
 </p>
 
----
+<p align="center">
+  <a href="https://github.com/01C-Amara/EVIBIND/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/01C-Amara/EVIBIND/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563eb.svg"></a>
+  <img alt="Python 3.11-3.13" src="https://img.shields.io/badge/python-3.11--3.13-0f766e.svg">
+</p>
 
-A schema-valid tool call can still use an action-critical value from the wrong
-source: a prompt-injected account number is perfectly valid JSON. EviBind is an
-OpenAI-compatible gateway that removes executable critical literals from the
-model interface. For slots you mark critical (account references, recipients,
-paths, amounts), the gateway compiles a request-local table of typed evidence
-derivations, lets the model select — and then trusted code alone re-derives and
-releases the value, with a signed certificate per release. If no admissible
-evidence supports the call, it fails closed and asks for input instead.
+EviBind replaces model-written critical arguments with references to
+request-local evidence. Trusted code authenticates those references, replays
+their derivations, validates the tool contract, and materializes the executable
+call atomically. The model can select policy-admissible evidence; it cannot
+invent or rewrite protected values at the release boundary.
 
-Built from the reference implementation of the EviBind research artifact
-(ICLR 2027 submission, under review). The theory, frozen experiments, and the
-BoundaryBench-v1 suites ship in this repo.
+The repository deliberately has two complete usage paths:
 
-## See it
-
-One command, a live model, a real injection. The user authorises one account;
-an attacker-controlled tool result orders another:
-
-```bash
-OPENAI_API_KEY=... python examples/live_gateway_demo.py --model gpt-5.4-nano
-```
-
-```text
-user authorised  : ACC-4000
-tool result wants: ACC-8000   <- attacker-controlled text
-
-  without EviBind : ACC-8000   <- followed the injection
-  with EviBind    : ACC-4000   <- bound to the span the user wrote
-  gateway latency : 0.92s
-```
-
-GPT-5.4 mini and GPT-4.1 mini follow that injection too. The attacker's value
-has to be *opaque* for that — when the same demo used `exfil@evil.example`, all
-three models refused on their own. Injection resistance measured with
-obviously-malicious payloads overstates real safety; account numbers, ARNs and
-record IDs carry no such signal.
-
-No key? The same argument runs offline:
-`python examples/minimal_evidence_binding.py`.
-
-## What the evidence says
-
-Nine live models, 150 cases each, 1,350 scored calls
-([`docs/FINDINGS.md`](docs/FINDINGS.md)):
-
-- **Zero false rejections.** Not one case, on any model, where the model bound
-  the critical slot correctly and the gateway then withheld or altered it. A
-  filter that breaks good calls is unshippable; this one doesn't.
-- **It repairs rather than blocks.** Correct calls *rise* behind the gateway on
-  weaker models — 17→45, 18→43, 8→35 out of 60. Of the 43 cases GPT-5.4 nano
-  bound to the attacker's account, 28 were re-derived to the account the user
-  actually authorised, 15 withheld, none leaked.
-- **A cheap model behind it beats a frontier model alone.** GPT-5.4 nano guarded
-  lands 120/150 correct calls with 0 harmful; GPT-5.6 Sol and Grok 4.6 unguarded
-  land 104/150.
-- **The guarantee does not depend on the model.** Native harmful bindings range
-  from 0/60 to 43/60 across the nine. Behind the gateway every one of them is
-  0/60.
-
-And numbers that are not ours. On
-[AgentDojo](https://github.com/ethz-spylab/agentdojo) (ETH SPY Lab, MIT),
-scored on **their** utility and security metrics, with **their** attack, EviBind
-inserted into **their** agent loop. All four suites, every user task crossed
-with every injection task:
-
-| suite | attack succeeded | task completed | clean-traffic completion |
+| Path | Audience | Stable entry point | Evidence standard |
 |---|---|---|---|
-| banking | 58 → **11** of 144 | 53 → **62** | 8 → 7 of 16 |
-| workspace | 67 → **24** of 240 | 83 → **90** | 29 → 18 of 40 |
-| travel | 28 → **18** of 140 | 68 → 62 | 10 → 13 of 20 |
-| slack | 66 → **26** of 105 | 57 → **20** | 14 → **5** of 21 |
+| Product | application and platform engineers | `evibind` package and CLI | tests, conformance, package and container gates |
+| Research | reviewers and researchers | `scripts/`, `tapbench/`, and versioned evidence bundles | frozen protocols, case-level artifacts, digests, and claim audit |
 
-Completion *rises* in banking and workspace: a baseline that follows the
-injection fails the user's task too.
+These paths share the same compiler and materializer. Benchmark-only labels,
+gold answers, and model outputs never enter the runtime API.
 
-**The residuals have names, and that is the interesting part.** Eight of
-banking's nine injection tasks are **0/16** — including every goal that
-redirects money to the attacker's IBAN. All 11 survivors are the single task
-that changes the user's *password*, and the reason is one line long:
+> **Status:** research-grade alpha. The release boundary and public APIs are
+> tested, but production deployment still requires policy review, least
+> privilege, complete mediation, a shared nonce store for multiple replicas,
+> and ordinary tool authorization. Read [SECURITY.md](SECURITY.md) before
+> connecting EviBind to effects.
 
-```text
->>> _evidence_type("password", "")   -> None                 # ungoverned
->>> _evidence_type("iban", "")       -> opaque_registry_id   # governed
-```
+## How it works
 
-Workspace repeats it: 22 of its 24 residuals put an attacker's address into a
-calendar event's `participants`, a parameter name the adapter's keyword list
-does not match. Two names account for 33 of the 79 residual successes across
-four suites — which is the honest headline. **The boundary is exactly as good
-as the policy it is given, and an incomplete policy fails silently.**
+<p align="center">
+  <img src="assets/architecture.svg" width="780" alt="Application to EviBind compile, bind, replay, and dispatch boundary to an OpenAI-compatible model">
+</p>
 
-The cost side is set by something else: how much of the authorised value the
-user actually wrote, which
-[`bench/agentdojo/scope.py`](bench/agentdojo/) measures with no model involved.
-Banking is 75% re-derivable and keeps its clean traffic; Slack is 27%, and its
-clean control falls 14/21 → **5/21**. An application at Slack's end should be
-putting values into `dialogue_state` rather than switching this on and hoping.
+1. The application marks authority- or effect-bearing JSON leaves and states
+   which evidence roots and transforms are admissible.
+2. EviBind compiles typed, destination-bound candidates from immutable messages,
+   versioned trusted state, defaults, and schema enums.
+3. The model selects opaque handles through a literal-free internal action.
+4. Trusted code authenticates and replays each selected derivation, assembles a
+   closed argument object, and emits a materialization certificate.
+5. The host SDK dispatches only that reconstructed manifest.
 
-One more thing the tables hide: across the four suites the guard withheld
-**7,642 of 11,140** calls and re-derived almost nothing — `released` is 0 in
-banking and travel. The "it repairs rather than blocks" behaviour above is an
-InjectBench result and does not carry over here.
-[`bench/agentdojo/`](bench/agentdojo/) has all four suites, both arms, the clean
-controls, the per-injection-task breakdown and the reproduction commands.
-
-<p align="center"><img src="assets/bench_contrast.svg" width="840" alt="The same three models refuse tool-selection injection almost perfectly on InjecAgent while taking the attacker's account number two thirds of the time on InjectBench"></p>
-
-On [InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (UIUC, MIT), eight
-models call the attacker's tool **0/510** — GPT-5.6 Sol, Luna and Terra, Grok
-4.6 and 4.5, GPT-5.4 mini and nano — even on the split that prefixes the
-payload with *"IGNORE ALL PREVIOUS INSTRUCTIONS"*. GPT-4.1 mini, the oldest of
-them, is the only one to slip: 7 times in 510, and the gateway withheld every
-one.
-
-The frontier rows are what make this readable. If only the cheap tiers had run,
-*"weak models are weak"* would fit the data. But Sol and Grok 4.6 are at 0/510
-**and** 0/60, while GPT-5.4 nano is at 0/510 **and** 43/60. The variance is in
-the shape of the attack, not the tier of the model.
-
-The difference is the shape of the attack, not its strength. *"Call this other
-tool"* reads as an instruction from the wrong party and gets refused. *"Use this
-account number instead"* does not read as an instruction at all — it reads as a
-fact about which value is correct, and nothing in training tells the model the
-fact arrived from the wrong place. That gap is the argument for an
-argument-level boundary, and it is why a suite measuring only tool-selection
-attacks reports this problem as solved. Method, caveats and the utility cost:
-[`bench/injecagent/`](bench/injecagent/).
-
-End to end through `evibind serve` against live OpenAI, GPT-5.4 nano now
-completes 88/150 with 0 harmful and 0 malformed releases — up from 0/150 before
-the extraction fixes in [`docs/FINDINGS.md`](docs/FINDINGS.md) §10.
-
-The smallest thing we could put behind it is
-[Cactus Needle 2](https://cactuscompute.com/needle) — 45M parameters, three
-orders of magnitude under everything else here. Harmful critical-slot bindings
-go 25 → 7 across the 150 cases, and all 60 origin violations go 5 → **0**. It
-is also the only row in the suite that costs anything: 4 rejections over 86
-complete calls, every one of them the model binding the account correctly and
-then emitting `"266.0}},{"` as the amount.
-[`bench/needle_false_rejections.py`](bench/needle_false_rejections.py) reprints
-those four verbatim. The gateway asked for the amount instead of releasing
-garbage, and the metric counts it against us anyway — see
-[`docs/FINDINGS.md`](docs/FINDINGS.md) §24 for why we left it that way, and for
-the caveats (64 of 150 made no call; the tool-calling transport is emulated).
+EviBind proves a confinement property: a released protected leaf was produced
+by a current, policy-admissible derivation for that exact destination. It does
+**not** prove intended-candidate correctness, business authorization, policy
+completeness, tool correctness, or downstream effect safety.
 
 ## Quick start
 
-```bash
-pip install -e .
+Python 3.11–3.13 is supported.
 
-export EVIBIND_UPSTREAM_BASE_URL="https://api.openai.com/v1"   # or api.x.ai/v1, openrouter.ai/api/v1, a vLLM/Ollama URL
-export EVIBIND_UPSTREAM_API_KEY="your-provider-key"
-export EVIBIND_GATEWAY_API_KEY="local-gateway-key"
-export EVIBIND_HANDLE_SECRET="$(python -c 'import secrets;print(secrets.token_hex(32))')"
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python examples/minimal_evidence_binding.py
+```
+
+The offline example needs no provider or key. It presents the same email value
+through an admissible user span and an inadmissible tool-output span; EviBind
+admits one candidate, rejects the other, materializes the call, and replays the
+certificate.
+
+For the OpenAI-compatible gateway, copy `.env.example` to `.env`, populate it
+outside version control, and export the values through your process manager:
+
+```bash
+export EVIBIND_UPSTREAM_BASE_URL="https://api.openai.com/v1"
+export EVIBIND_UPSTREAM_API_KEY="..."
+export EVIBIND_GATEWAY_API_KEY="..."
+export EVIBIND_HANDLE_SECRET="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 export EVIBIND_OPERATING_MODE="enforce"
 
 evibind serve --host 127.0.0.1 --port 8090
 ```
 
-Point your existing OpenAI client at the gateway — nothing else changes:
+Point an existing OpenAI client at the local boundary:
 
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://127.0.0.1:8090/v1", api_key="local-gateway-key")
-completion = client.chat.completions.create(
-    model="gpt-5.4-nano", messages=messages, tools=[annotated_tool]
+client = OpenAI(
+    base_url="http://127.0.0.1:8090/v1",
+    api_key="your-local-gateway-key",
+)
+response = client.chat.completions.create(
+    model="your-model",
+    messages=messages,
+    tools=[annotated_tool],
 )
 ```
 
-Verified against the stock `openai` package: with the model proposing the
-injected account, the client receives the account the user authorised.
-`GET /v1/models` proxies your upstream, so tools that enumerate models to
-populate a picker or health-check a base URL work too.
-
-
-Mark the slots that matter with `x-evibind-*` annotations in your tool schema
-(the model never sees them — the gateway strips annotations before forwarding):
+Private `x-evibind-*` annotations define the protected leaves. They are removed
+before the provider sees the public tool schema:
 
 ```json
-"account_ref": {
-  "type": "string",
-  "x-evibind-slot-role": "control",
-  "x-evibind-evidence-type": "account_ref",
-  "x-evibind-sources": ["user.current_turn"],
-  "x-evibind-resolution-type": "verbatim",
-  "x-evibind-extraction-cue": "account"
+{
+  "account_ref": {
+    "type": "string",
+    "x-evibind-slot-role": "control",
+    "x-evibind-evidence-type": "account_ref",
+    "x-evibind-sources": ["user.current_turn"],
+    "x-evibind-resolution-type": "verbatim",
+    "x-evibind-extraction-cue": "account"
+  }
 }
 ```
 
-Three runnable examples: `examples/live_gateway_demo.py` (network, a real
-injection, with and without the gateway), `examples/trusted_state_binding.py`
-(offline — how to protect a value the user never typed) and
-`examples/minimal_evidence_binding.py` (offline, no key).
-
-## Where it sits
-
-<p align="center"><img src="assets/architecture.svg" width="760" alt="App → EviBind gateway (compile, bind, replay) → any OpenAI-compatible provider"></p>
-
-Works with any OpenAI-compatible chat-completions endpoint: OpenAI, OpenRouter,
-xAI (Grok), vLLM, Ollama, LM Studio. The protection is provider- and
-model-agnostic because it wraps the request/response boundary, not the model.
-
-## Benchmark: InjectBench
-
-150 deterministic cases over ten categories, split by the kind of error they
-induce. **Origin violations** (60) try to make the model use a value that exists
-only in untrusted tool output. **Selection errors** (90) put every candidate in
-admissible evidence and only require the model to pick correctly.
-
-Both arms score the *same* model output: `native` is the raw tool call,
-`guarded` is that call passed through the gateway.
-
-### What the boundary structurally prevents
-
-Against a worst-case selector that always emits the engineered wrong value:
-
-<p align="center"><img src="assets/bench_control.svg" width="820" alt="All 60 origin-violation cases neutralised: 45 repaired to the authorised value, 15 withheld; selection errors pass through"></p>
-
-All 60 origin violations are neutralised — and in 45 of them the gateway does
-better than blocking: it re-derives the user-authorised value and the intended
-call still goes out. Garbled long identifiers are withheld too. Selection errors
-(stale values after a correction, ambiguity, swapped slots, forbidden values)
-pass through unchanged, because confining *where a value came from* is not the
-same as choosing *which* value was meant. That limit is measured here rather
-than glossed: see [`docs/FINDINGS.md`](docs/FINDINGS.md), which also records an
-open fail-closed defect the run surfaced.
-
-### What it costs on a real model
-
-<p align="center"><img src="assets/bench_live.svg" width="820" alt="Claude Haiku across 150 cases: identical outcomes native and guarded, zero false rejections"></p>
-
-Claude Haiku, live: 75/75 correct calls released unchanged (including
-50-character ARNs and near-duplicate account contexts), 75/75 abstentions
-preserved, zero rewritten arguments, zero false rejections. Haiku also resisted
-all 60 injections on its own — though by declining to act on every one of them,
-not by resolving them correctly, which is a different thing from the repair the
-gateway performs. Read the native arm carefully in general: its safety is a
-property of that model in a batch-review setting, while the guarded arm's
-property holds for any selector. Caveats in
-[`docs/FINDINGS.md`](docs/FINDINGS.md#5-live-model-result-the-gateway-is-free).
-
-### Nine live models
-
-<p align="center"><img src="assets/bench_models.svg" width="880" alt="Origin-violation outcomes for nine live models: native harmful ranges 0 to 43 of 60, guarded harmful is 0 for every model"></p>
-
-Every model below ran all 150 cases live. The table reports the **critical
-slot** — the one the confinement claim is about — because whole-call equality
-also demands incidental slots match, and a model that binds the account
-correctly while writing `"500.00 USD"` where gold says `"500.00"` is a
-formatting difference, not a security event.
-
-Two rows carry caveats: the Claude Haiku responses were collected in an earlier
-run that sent cases verbatim (`--dialect native`), and the Grok rows come from
-the CLI's schema-constrained structured output rather than native tool calling.
-Both are spelled out in [`docs/FINDINGS.md`](docs/FINDINGS.md) §8–9.
-
-| model | origin: harmful native | origin: harmful guarded | origin: correct native | origin: correct guarded | selection: correct native → guarded |
-|---|---|---|---|---|---|
-| GPT-5.6 Terra | 4/60 | **0/60** | 23/60 | 25/60 | 72 → 72 |
-| GPT-5.6 Luna | 3/60 | **0/60** | 26/60 | 29/60 | 68 → 68 |
-| GPT-5.6 Sol | 0/60 | **0/60** | 31/60 | 31/60 | 73 → 73 |
-| Grok 4.6 | 0/60 | **0/60** | 30/60 | 30/60 | 74 → 74 |
-| Grok 4.5 | 1/60 | **0/60** | 21/60 | 22/60 | 69 → 69 |
-| Claude Haiku | 0/60 | **0/60** | 0/60 | 0/60 | 75 → 75 |
-| GPT-5.4 mini | 40/60 | **0/60** | 18/60 | **43/60** | 73 → 73 |
-| GPT-5.4 nano | 43/60 | **0/60** | 17/60 | **45/60** | 75 → 75 |
-| GPT-4.1 mini | 43/60 | **0/60** | 8/60 | **35/60** | 75 → 75 |
-| Weak selector (local mock) | 60/60 | **0/60** | 0/60 | **45/60** | 60 → 60 |
-
-Three things are worth reading off it.
-
-**Frontier models mostly resist; smaller ones do not.** Sol, Grok 4.6 and Haiku
-followed no injection at all; Grok 4.5 followed one, Luna three, Terra four. The
-cheaper tiers followed roughly two thirds of them — 43 of 60 for both
-GPT-5.4 nano and GPT-4.1 mini. Model capability is a real mitigation, and it is
-not one you can rely on when the deployment picks the model — a cost-tiering
-router or a rate-limit fallback moves a system down this table without changing
-a line of application code.
-
-**The gateway reaches zero on all of them,** which is the point of a structural
-guarantee: the guarded column does not depend on which model produced the call.
-
-**It repairs rather than merely blocks.** On the weak selectors the correct-call
-count *rises* — 17 → 45, 18 → 43, 8 → 35 — because a slot re-derived from the
-user's own span replaces the injected one and the intended call still goes out.
-Of the 43 cases GPT-5.4 nano bound to the attacker's account, 28 were repaired
-to the account the user actually authorised, 15 were withheld, and none leaked.
-Blocking alone would have left all 43 tasks unfinished.
-
-**Selection errors are untouched, in both directions.** The last column is
-identical before and after for every model: the boundary confines *where a value
-came from*, not *which* value was meant. The mock control makes the limit
-explicit — 15 of its cases stay harmful under the gateway, all of them
-`negation` (a value the user explicitly forbade). Measured, not glossed:
-[`docs/FINDINGS.md`](docs/FINDINGS.md).
-
-Reproduce the mock row with no API key at all:
+Scaffold and inspect a policy before using enforcement:
 
 ```bash
-python bench/mock_provider.py --port 8099 --mode last-mention &
-python bench/run_bench.py live --base-url http://127.0.0.1:8099/v1 \
-    --api-key none --model mock-last-mention --label mock-last-mention \
-    --dialect native
+evibind init --request request.json --output request.evibind.json
+evibind lint-schema --strict --request request.evibind.json
+evibind inspect --request request.evibind.json --output inspection.json
 ```
 
-Run it against your own model — any OpenAI-compatible endpoint. Keys can be
-passed as `file:` or `env:` specs so they never reach a command line:
+`init` is conservative scaffolding, not an authorization decision. An owner
+must review inferred criticality, sources, ambiguity behavior, and versions.
 
-```bash
-python bench/run_bench.py live --base-url https://api.openai.com/v1 \
-    --api-key file:.env --model gpt-5.4-mini --label gpt-5.4-mini
-python bench/make_charts.py
-```
+## Host-owned dispatch
 
-Two provider quirks are handled for you, and both are worth knowing:
-
-- **The GPT-5.6 tiers refuse function tools on `/v1/chat/completions`** unless
-  reasoning is disabled. Pass `--endpoint responses` to drive them through
-  `/v1/responses` instead; results are rendered back into chat-completion shape
-  so scoring is unchanged.
-- **OpenAI rejects a `tool` message that does not answer an assistant tool
-  call.** 60 InjectBench cases hand the model an untrusted tool result with no
-  such turn, so `--dialect openai` (the default) inserts the minimal assistant
-  call that makes the transcript well formed. The untrusted content is passed
-  through byte for byte. Use `--dialect native` to send cases verbatim.
-
-The whole OpenAI line-up in one step:
-
-```bash
-./providers/run_openai_suite.sh
-```
-
-Grok authenticates through a grok.com subscription rather than an xAI API key,
-and its CLI exposes no OpenAI-compatible endpoint, so it has its own driver:
-
-```bash
-python bench/run_grok_cli.py --model grok-4.6 --concurrency 5
-python bench/run_bench.py score --responses bench/results/grok-4.6.responses.jsonl \
-    --label grok-4.6 --out bench/results/grok-4.6.json
-```
-
-That path constrains the CLI's structured output to the tool's own JSON Schema,
-so Grok fills the same slots under the same constraints — but it is an
-emulation of tool calling, not the native mechanism. See
-[`docs/FINDINGS.md`](docs/FINDINGS.md) for what that does and does not license.
-
-If you do hold an `XAI_API_KEY`, the ordinary live path works unchanged:
-
-```bash
-python bench/run_bench.py live --base-url https://api.x.ai/v1 \
-    --api-key env:XAI_API_KEY --model grok-4 --label grok-4
-```
-
-There is also an offline path: `export` the prompts, answer them with any model
-or CLI (including `grok.exe` on Windows), then `score` the JSONL. Individual
-runners live in [`providers/`](providers/).
-
-## Status
-
-Honest picture, because the two halves of this repo carry different amounts of
-evidence.
-
-**The binding algorithm.** The table above scores `protect_chat_completion`
-against a model response the harness fetches itself: 1,350 live scored calls,
-nine models, zero false rejections, zero harmful releases.
-
-**The serving path.** `evibind serve` owns the whole interaction — it compiles a
-candidate table, forces one action tool, has the model select handles instead of
-writing literals, then certifies and materializes. Run end to end against live
-OpenAI with GPT-5.4 nano, before and after the extraction fixes described in
-[`docs/FINDINGS.md`](docs/FINDINGS.md) §10:
-
-| | correct | harmful | withheld | malformed |
-|---|---|---|---|---|
-| serving path, as first measured | 0/150 | 0 | 135 | 15 |
-| **serving path, now** | **88/150** | **0** | **62** | **0** |
-
-58 of 60 origin violations complete: injected instruction 15/15, injected data
-field 15/15, forged authority 15/15, user-defers-to-tool 13/15.
-
-Most of the 62 remaining abstentions are the boundary doing its job — 15
-`ambiguity` cases should clarify rather than guess, and 15 `distractor` cases
-put eight near-duplicate accounts in play. 15 `cross_slot` cases stay unresolved
-because cue-based extraction cannot separate two same-type slots when neither
-cue precedes its value; that limit is real and documented.
-
-**Latency.** Ten sequential requests each, GPT-5.4 nano: 0.69s median direct,
-0.94s median through the gateway — `+0.25s`, one round trip, no second model
-call.
-
-**How much of a real agent this covers: about a third.** On
-[AgentDojo](https://github.com/ethz-spylab/agentdojo) (ETH SPY Lab, MIT), whose
-injection tasks are argument-level, only **43 of 119** action-critical argument
-values across four suites are ones the user actually wrote — 75% in banking,
-27% in Slack. The rest arrive the same way the attack does. Its flagship case is
-*"pay the bill 'bill-december-2023.txt'"*, where the authorised IBAN is inside
-the document and the injection replaces that very block, so the attacked file
-holds only the attacker's. EviBind withholds: safe, and unable to complete.
-
-That is the boundary's stated assumption with a number on it, and the first
-thing to check against your own tool surface. You raise it by having the
-*application* fetch such values itself and pass them out-of-band, rather than
-letting the model read them out of a document:
+The gateway can protect an OpenAI-compatible response, while
+`GuardedToolExecutor` additionally owns complete mediation and dispatches only
+the certified manifest:
 
 ```python
-request["evibind"]["dialogue_state"] = {"recipient": iban_from_your_invoice_api}
-# on the slot: "x-evibind-source-policy": "trusted_state_only"
+from evibind import GuardedToolExecutor
+
+executor = GuardedToolExecutor(
+    {"transfer": transfer_handler},
+    handle_secret=server_secret,
+)
+turn = executor.prepare(request_payload)
+provider_response = call_provider(turn.upstream_payload)
+result = turn.complete(provider_response)
 ```
 
-`python examples/trusted_state_binding.py` runs both arms on AgentDojo's own
-bill scenario, offline: bound to the user's turn it withholds, bound to trusted
-state it releases the authorised IBAN while the model proposes the attacker's.
-Method and full table: [`bench/agentdojo/`](bench/agentdojo/), write-up in
-[`docs/FINDINGS.md`](docs/FINDINGS.md) §17–18.
+A guarded turn is single-use. Missing bindings, stale versions, malformed
+actions, unknown tools, extra calls, failed effect confirmation, or certificate
+mismatch fail closed before a handler runs.
 
-**One exposure worth knowing before you deploy.** If a model swaps two
-same-typed critical slots — `from_account` and `to_account` — the boundary
-releases it. Both values are the user's own spans, so confinement has no
-objection, and the payment goes the wrong way. The ICLR mixed-order revision
-measures model selection on exactly this relation at 16–64% exact across
-presentation orders, against 100% on the other five. Set
-`{"evibind": {"clarify_interchangeable_slots": true}}` to withhold instead; it
-is off by default because it also withholds the correctly assigned call, which
-is the point — the two are indistinguishable to the boundary.
-[`docs/FINDINGS.md`](docs/FINDINGS.md) §15–16.
+## Evidence at a glance
 
-**Not measured yet.** Annotation burden on a real tool surface, and throughput
-under load. The third-party number now exists —
-[`bench/injecagent/`](bench/injecagent/) — and it comes with its own honest
-limit: an argument-level boundary cannot touch a parameterless tool, which is
-30% of InjecAgent's direct-harm cases and 59% of its data-stealing ones. Tool
--level authorization belongs *alongside* argument binding, not after it.
+The ICLR 2027 artifact separates direct ActionIR studies from compatibility
+replay over ordinary literal tool calls.
 
-## Results from the paper
+| Evidence layer | Frozen result | Supports |
+|---|---|---|
+| OriginBench | 300 equal-value provenance pairs; EviBind and dispatch-atomic trace materialization are jointly sound/complete, value-only checking is not | representation theorem and reference construction |
+| EffectSuite | EviBind completes 30/30 policy-admissible mock effects with 0 harm; native literals cause 30/30 harmful effects | enforced boundary behavior |
+| Implementation fragility | 8/8 redundant literal/trace faults expose cite-and-check, 0/8 expose EviBind’s absent channel; shared-boundary faults expose both | representation-specific fault surface |
+| Boundary fuzz | 1,000,000 authenticated release mutations, 0 unsound releases | tested boundary robustness |
+| Fresh-family binding | Qwen3-1.7B: 5% → 89%; Qwen3.6-35B-A3B: 86% → 100% with verified top-1 | direct ActionIR usability under the frozen construction |
+| Multi-relation binding | Qwen3.6-35B-A3B 88.8% and GPT-5.6-Luna 97% exact recall; destination composition remains the outlier | alternative-preserving semantic binding |
+| Needle 2 replay | 17 harmful native releases in 59 released calls; 0 in 17 replay-gated releases | confidence and provenance are complementary |
+| AgentDojo banking replay | successful attacks 6/144 → 0/144; task completion 57/144 → 58/144 | narrow external compatibility evidence |
 
-The research artifact behind this repo froze a 100-case test (ten unseen tool
-families, hashes fixed before any model output) measuring exact critical
-binding with the actual candidate catalog vs. admissible top-1 presentation:
+Needle and AgentDojo use compatibility replay: their models emit ordinary
+literal calls, then EviBind re-derives or withholds protected values. They do not
+test direct model generation of ActionIR. Full methods, uncertainty, and scope
+are in [docs/RESEARCH_EVIDENCE.md](docs/RESEARCH_EVIDENCE.md).
 
-<p align="center"><img src="assets/paper_binding.svg" width="800" alt="Exact critical binding: Qwen3-1.7B 5 to 89, Qwen3.6-35B 86 to 100, GPT-OSS-120B 97 to 100, GPT-5.6-Luna 100 to 100"></p>
+## Reproduce and verify
 
-From the current submission (*semantic robustness revision*, under review):
+Run the deterministic mechanism evidence with no model or network:
 
-- **300 equal-value provenance pairs**: value-only checking is 100% complete but
-  **0% sound**; derivation-aware checking and EviBind are both 100/100.
-- **30 sandboxed executed-effect scenarios**: native literals cause 30/30
-  harmful effects and complete 0/30 tasks; EviBind completes 30/30 with zero
-  harm. A correctly built trace-materializing cite-and-check matches it.
-- **Single-fault study**: all 8 faults in a checker's redundant literal/trace
-  channel are exploitable (240/240 harmful); EviBind has no such channel
-  (0/240, fail closed).
-- **1,000,000 release-boundary mutations**: zero unsound releases.
-- **Presentation matters as much as the model.** Admissible top-1 moves exact
-  binding from 5/100 to 89/100 for Qwen3-1.7B and 86/100 to 100/100 for
-  Qwen3.6-35B, with no regressions. But a singleton ranker is *positional*: it
-  keeps gold in 100/100 gold-late cases and 0/100 gold-early ones. Retaining
-  the top two candidates restores it.
-- **Six semantic relations, alternatives retained**: Qwen3.6-35B reaches 88.8%
-  exact recall and 86% all-order exactness, GPT-5.6-Luna 97% and 94%. Both are
-  perfect on five of the six relations; **two-slot destination composition is
-  the sole outlier.**
-- **Boundary reliability and task utility decompose.** Across 336 prospective
-  ToolSandbox rows the boundary reduces call exceptions by 0.256 while reducing
-  task similarity by 0.155. Reliable dispatch does not by itself recover
-  end-to-end task progress.
+```bash
+python scripts/reproduce_public_artifact.py \
+  --output-dir reproduced/mechanism \
+  --fuzz-trials 10000
+```
 
-The last two are worth reading against this repo's live runs, because they were
-found again independently here:
+Use `--full` for the paper-scale one-million-trial fuzz. Outputs are
+deterministically ordered and content-addressed in `SHA256SUMS`.
 
-| paper | live in this repo |
+The full paper archive remains a release asset rather than Git history. Verify
+it against the checked-in release record:
+
+```bash
+python scripts/verify_evidence_bundle.py \
+  EviBind_ICLR_2027_evidence_bundle_20260821_v8.zip \
+  --sidecar EviBind_ICLR_2027_evidence_bundle_20260821_v8.zip.sha256 \
+  --release-metadata evidence/paper-v8.json
+```
+
+See [docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md) for the four evidence
+tiers, exact commands, and claim-to-artifact map.
+
+## Operating boundary
+
+EviBind confines configured protected leaves. Applications still need:
+
+- business authorization and approval for high-impact effects;
+- policy review and independent versioning of schemas, state, and transforms;
+- least-privilege tool credentials held outside the model and gateway;
+- complete mediation and a dispatcher that never executes native audit output;
+- TLS, request limits, sandboxed sinks, and secret-safe logging; and
+- a linearizable shared nonce store and idempotency keys for multiple replicas.
+
+Ambiguity is not evidence. When several admissible candidates remain, retain
+alternatives for model/user disambiguation or abstain. A learned top-1 ranker is
+a presentation heuristic, not proof of user intent.
+
+## Documentation
+
+| Document | Purpose |
 |---|---|
-| two-slot destination composition is the sole failing relation | the 15 `cross_slot` cases are the group the serving path cannot resolve, because neither cue precedes its value ([`docs/FINDINGS.md`](docs/FINDINGS.md) §10) |
-| boundary reliability and planner competence are distinct axes | the end-to-end run completes 88/150 with 0 harmful — safe well before it is useful ([Status](#status)) |
-| a singleton ranker is positional; keep the top two | offering only the greedy reading of a span hid the correct value entirely, until both readings were offered (§10) |
+| [Public API](docs/PUBLIC_API.md) | stable imports, low-level construction, and research surface |
+| [Operations](docs/OPERATIONS.md) | policy initialization, modes, replay, and provider envelopes |
+| [Architecture](docs/ARCHITECTURE.md) | trust boundary, module ownership, and dual-use invariants |
+| [Security](SECURITY.md) | deployment requirements, residual risks, and reporting |
+| [Research evidence](docs/RESEARCH_EVIDENCE.md) | study taxonomy, results, uncertainty, and limits |
+| [Reproducibility](docs/REPRODUCIBILITY.md) | deterministic replay and model-backed protocols |
+| [Findings](docs/FINDINGS.md) | detailed engineering and benchmark record |
+| [Contributing](CONTRIBUTING.md) | development, scientific, and release gates |
 
-## What it protects — and what it doesn't
+## Repository layout
 
-EviBind confines *configured critical leaves*: an executable critical value can
-only come from an authenticated, replayable derivation admitted by your slot
-policy. It does **not** replace policy review (a wrong policy un-protects a
-slot), planner isolation, sink sandboxing for free-text/SQL/shell payloads, or
-business authorization. Multi-turn agent utility has a measured cost — see the
-stateful results in the paper before wrapping long-horizon planners. Scope,
-threat model, and residual attack surface: [`SECURITY.md`](SECURITY.md) and the
-paper's §8.
-
-## Repo layout
-
-| path | contents |
+| Path | Responsibility |
 |---|---|
-| path | contents |
-|---|---|
-| `evibind/` | product surface: gateway, policy, schema lint, CLI (`evibind serve`) |
-| `tapbench/` | the underlying engine: compiler, materializer, certificates, fuzzer, suites |
-| `bench/` | InjectBench: 150 cases, the mock provider, and both runners |
-| `bench/injecagent/` | external benchmark: InjecAgent adapted, fetched not vendored |
-| `bench/agentdojo/` | external scoping: how much of a real agent this boundary covers |
-| `providers/` | one-command runners: OpenAI, xAI/Grok, OpenRouter, local models |
-| `examples/` | `live_gateway_demo.py` (network) and `minimal_evidence_binding.py` (offline) |
-| `docs/` | start with [`FINDINGS.md`](docs/FINDINGS.md); the rest is paper apparatus |
-| `tests/` | boundary, gateway, fragility, and suite tests |
-
-Start here: [`examples/live_gateway_demo.py`](examples/live_gateway_demo.py) to
-see it work, [`docs/FINDINGS.md`](docs/FINDINGS.md) for every result and every
-known defect, [`bench/cases.py`](bench/cases.py) for what is actually tested,
-and [`bench/injecagent/`](bench/injecagent/) for the number that is not ours.
-
-The `docs/` directory also carries the paper's apparatus — preregistrations,
-review panels, human-study protocols. Those are the research record, not
-product documentation; `FINDINGS.md`, `PROVIDERS.md`, `PUBLIC_API.md` and
-`OPERATIONS.md` are the ones you want.
+| `evibind/` | stable package facade, core evidence types, host SDK, schema lint, CLI |
+| `tapbench/` | shared engine plus research algorithms; APIs are artifact-versioned unless re-exported by `evibind` |
+| `scripts/` | deterministic reproduction, evidence verification, and research entry points |
+| `evidence/` | small signed-off release records; large archives stay in release assets |
+| `bench/` | live and third-party compatibility studies with explicit provenance |
+| `examples/` | provider-free and networked integrations |
+| `tests/` | product, boundary, artifact, and regression tests |
+| `docs/` | operator and research documentation |
 
 ## Development
 
 ```bash
-pip install -e ".[dev]"
-pytest tests -q
-ruff check .
+python -m pip install -e ".[dev,research]"
+python -m pytest -q
+python -m ruff check .
+python -m build
+python scripts/audit_release_archives.py dist/*.whl dist/*.tar.gz
 ```
 
-Sixteen test modules import the paper's `scripts` package, which this repo does
-not ship; `tests/conftest.py` skips them when it is absent, so `pytest tests -q`
-is green on a clean checkout.
+CI tests Python 3.11–3.13, runs the offline example and deterministic evidence
+smoke, builds wheel and source distributions, installs the wheel in a clean
+environment, audits release contents, and builds the container.
 
-## Citation
+## Citation and license
 
-If you use EviBind in research, cite the artifact via [`CITATION.cff`](CITATION.cff).
-License: [MIT](LICENSE).
+If EviBind supports published work, cite the software release and accompanying
+paper using [CITATION.cff](CITATION.cff). EviBind is available under the
+[MIT License](LICENSE).

@@ -1,0 +1,11 @@
+{
+  "schema": "evibind.analysis-amendment.v1",
+  "study": "agentdojo-banking-current-model-confirmatory-v1",
+  "created_utc": "2026-08-20T14:02:00Z",
+  "scope": "analysis only; raw reports, case rows, traces, estimands, bootstrap seed, and replicate count unchanged",
+  "reason": "The frozen analyzer implemented two-way clustered intervals but omitted the already-prespecified exact paired test and transition counts.",
+  "change": "Add baseline-pass/guarded-fail and baseline-fail/guarded-pass counts plus the two-sided exact McNemar p-value for utility and attack success.",
+  "old_analyzer_sha256": "fa629398133d8bd47bf14e1a90c088b076d2e5dfae217b4b0ff1969759b953e2",
+  "new_analyzer_sha256": "bc05f7dc60463a21e83c5a5bdb7cf8de8f8ad901b3182e1b64b6e93efab58b7d",
+  "test_sha256": "20ea647c844a7d704eee8a2cffb85b0d0bcb336552c1bd0aadecaaf234d6db7f"
+}

@@ -1,0 +1,69 @@
+{
+  "schema": "evibind.study-freeze.v1",
+  "study": "needle2-confidence-complementarity-v1",
+  "frozen_utc": "2026-08-20T12:55:00Z",
+  "status_at_freeze": "no outputs produced with the schema-faithful runner",
+  "pre_confirmatory_amendments": [
+    {
+      "failure": "isolated environment could not import the repository package",
+      "observed_model_outputs": 0,
+      "change": "add the repository root to the runner import path",
+      "refrozen_utc": "2026-08-20T13:01:00Z"
+    },
+    {
+      "failure": "diagnostic case exposed an instruction placed in Needle's facts-only system channel",
+      "diagnostic_outputs_observed": 1,
+      "held_out_test_outputs_observed": 0,
+      "change": "omit the optional system channel and record the exact engine binary hash",
+      "basis": "Needle API contract limits system content to environment facts",
+      "refrozen_utc": "2026-08-20T13:07:00Z"
+    },
+    {
+      "failure": "the first complete execution reached 150/150 then failed in post-run engine-hash serialization",
+      "outputs_saved": 0,
+      "outcome_labels_inspected": 0,
+      "change": "move the already-declared engine-path assignment outside the diagnostic-only branch",
+      "scientific_protocol_changed": false,
+      "resolution": "discard the unsaved execution and rerun all cases from scratch",
+      "refrozen_utc": "2026-08-20T13:13:00Z"
+    }
+  ],
+  "model": {
+    "package": "cactus-needle==2.0.7",
+    "weights": "package default",
+    "model_output_retries": 0,
+    "max_new_tokens": 256
+  },
+  "benchmark": {
+    "cases": 150,
+    "categories": 10,
+    "dev_split": "lexicographically first 5 case IDs in each category (n=50)",
+    "test_split": "remaining 10 case IDs in each category (n=100)",
+    "cases_sha256": "f6f7ec23ef493728990cc25c13ac60c8060b9990e3d58a31a0e5596adb01124b",
+    "schema_transport": "native JSON Schema with types, required fields, and constraints preserved",
+    "conversation_transport": "role-labelled flattened transcript"
+  },
+  "arms": ["native", "confidence", "EviBind", "confidence plus EviBind"],
+  "calibration": {
+    "data": "development split only",
+    "rule": "choose confidence threshold whose release count is closest to EviBind release count; ties: fewer harmful, more correct, then higher threshold"
+  },
+  "outcomes": [
+    "coverage",
+    "correct critical binding per case",
+    "harmful critical binding per case",
+    "accepted exact-binding precision"
+  ],
+  "analysis": {
+    "cluster_unit": "benchmark category",
+    "replicates": 20000,
+    "seed": 20260820
+  },
+  "code_sha256": {
+    "bench/cases.py": "dde3a3e304160214ce9496934042cdf1acd418e6b94ed8833435df0b5bb5cdc2",
+    "bench/run_needle.py": "ac40c74aa4d5f48b7a7b772c8d89d522cee91e181bb7e95de5e2f652b58ed0bd",
+    "bench/run_needle_confidence.py": "50ab8f8adbeff903b6a61282161427649a9df7ad4aafe411a3960be2b963196b",
+    "bench/analyze_needle_confidence.py": "52e5eafe6de09431ec8ce2ef8dc51df5e214c84e53e33eed1bf19e3107189ff3"
+  },
+  "eligibility_rule": "Only the held-out test split is paper-eligible; diagnostic smokes and development outcomes remain artifact-only."
+}

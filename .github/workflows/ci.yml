@@ -1,56 +1,134 @@
 name: ci
+
 on:
   push:
-    # the default branch here is master; main is listed too so a rename does
-    # not silently stop CI from running on push
     branches: [main, master]
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  product-tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install -e ".[dev]"
-      - run: python examples/minimal_evidence_binding.py
-      - run: python bench/run_bench.py export --out /tmp/requests.jsonl
-      - run: pytest tests -q
-      - run: ruff check .
+          cache: pip
+      - name: Install development environment
+        run: python -m pip install -e ".[dev,research]"
+      - name: Offline quickstart
+        run: python examples/minimal_evidence_binding.py
+      - name: Product and boundary tests
+        run: python -m pytest -q
+      - name: Conformance
+        run: python -m tapbench.cli conformance
+      - name: Lint
+        run: python -m ruff check .
 
-  offline-benchmark:
-    # The benchmark runs without credentials against bench/mock_provider.py, so
-    # a regression in the boundary is caught here rather than in a live run.
+  deterministic-evidence:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev,research]"
+      - name: Reproduce mechanism evidence smoke
+        run: >-
+          python scripts/reproduce_public_artifact.py
+          --output-dir /tmp/evibind-evidence
+          --per-pattern 2
+          --per-effect-kind 1
+          --separation-repetitions 2
+          --fuzz-trials 260
+      - name: Evidence verifier tests
+        run: >-
+          python -m pytest -q
+          tests/test_public_reproduction.py
+          tests/test_evidence_bundle_verifier.py
+          tests/test_repository_contract.py
+
+  offline-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
       - run: python -m pip install -e ".[dev]"
-      - name: score the weak-selector control
+      - name: Score the weak-selector control
         run: |
           python bench/mock_provider.py --port 8099 --mode last-mention &
+          provider_pid=$!
+          trap 'kill "$provider_pid"' EXIT
           sleep 3
           python bench/run_bench.py live \
-            --base-url http://127.0.0.1:8099/v1 --api-key none \
-            --model mock-last-mention --label mock-last-mention \
-            --dialect native --concurrency 4 \
+            --base-url http://127.0.0.1:8099/v1 \
+            --api-key none \
+            --model mock-last-mention \
+            --label mock-last-mention \
+            --dialect native \
+            --concurrency 4 \
             --out /tmp/mock-last-mention.json
-      - name: the control must stay fully neutralised
+      - name: Assert the confinement control
         run: |
           python - <<'PY'
           import json
-          data = json.load(open("/tmp/mock-last-mention.json"))
+          from pathlib import Path
+
+          data = json.loads(Path("/tmp/mock-last-mention.json").read_text())
           origin = data["origin_violation"]
           assert origin["native_slot"]["harmful"] == 60, origin
           assert origin["guarded_slot"]["harmful"] == 0, origin
           assert origin["guarded_slot"]["correct"] == 45, origin
           print("weak selector: 60 harmful natively -> 0 guarded, 45 repaired")
           PY
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install build
+      - name: Build wheel and source distribution
+        run: python -m build
+      - name: Audit release contents
+        run: python scripts/audit_release_archives.py dist/*.whl dist/*.tar.gz
+      - name: Install wheel in an isolated environment
+        run: |
+          python -m venv /tmp/evibind-wheel
+          /tmp/evibind-wheel/bin/python -m pip install dist/*.whl
+          /tmp/evibind-wheel/bin/python -c \
+            "import evibind; print(evibind.__version__)"
+          /tmp/evibind-wheel/bin/evibind --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evibind-python-distributions
+          path: dist/*
+          if-no-files-found: error
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build non-root gateway image
+        run: docker build --tag evibind:ci .
+      - name: Check configured user
+        run: test "$(docker image inspect evibind:ci --format '{{.Config.User}}')" = "evibind"

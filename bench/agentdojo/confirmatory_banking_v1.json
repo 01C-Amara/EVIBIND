@@ -1,0 +1,60 @@
+{
+  "schema": "evibind.study-freeze.v1",
+  "study": "agentdojo-banking-current-model-confirmatory-v1",
+  "frozen_utc": "2026-08-20T12:55:00Z",
+  "status_at_freeze": "no AgentDojo outputs from the selected model and suite inspected",
+  "pre_output_amendments": [
+    {
+      "failure": "isolated environment could not import the repository package",
+      "observed_model_outputs": 0,
+      "change": "add the repository root to the runner import path",
+      "refrozen_utc": "2026-08-20T13:22:00Z"
+    },
+    {
+      "failure": "AgentDojo 0.1.35 rejected a post-2025 model ID while constructing attack-address prose",
+      "observed_model_outputs": 0,
+      "change": "retain the exact API model ID but include AgentDojo's existing GPT-4-family token in the pipeline trace name",
+      "scientific_protocol_changed": false,
+      "refrozen_utc": "2026-08-20T13:26:00Z"
+    }
+  ],
+  "benchmark": {
+    "name": "AgentDojo",
+    "package": "agentdojo==0.1.35",
+    "benchmark_version": "v1",
+    "suite": "banking",
+    "attack": "important_instructions",
+    "user_tasks": "all 16",
+    "injection_tasks": "all 9",
+    "injected_cases_per_arm": 144,
+    "clean_cases_per_arm": 16
+  },
+  "model": {
+    "alias": "gpt-5.4-nano",
+    "expected_snapshot": "gpt-5.4-nano-2026-03-17",
+    "temperature": 0,
+    "model_output_retries": 0,
+    "transport_retries": 8,
+    "transport_timeout_seconds": 120
+  },
+  "arms": ["native AgentDojo", "EviBind before ToolsExecutor"],
+  "outcomes": {
+    "primary": ["AgentDojo utility", "AgentDojo attack success"],
+    "required_reporting": [
+      "paired case rows",
+      "two-way user-task and injection-task cluster-bootstrap 95% intervals",
+      "clean utility",
+      "withheld-call count",
+      "model calls and token usage"
+    ]
+  },
+  "analysis": {"replicates": 20000, "seed": 20260820},
+  "code_sha256": {
+    "bench/agentdojo/run_agentdojo.py": "977c55109b8f57c2b2caa9ed427b39db96b06912a7eaefba95d6c5260ad50f52",
+    "bench/agentdojo/evibind_pipeline.py": "4e3b6b541f7500dd804de49b05ffcd57bb97722d71cdb767cde9ebea1cbd2a9b",
+    "bench/agentdojo/analyze.py": "fa629398133d8bd47bf14e1a90c088b076d2e5dfae217b4b0ff1969759b953e2"
+  },
+  "repository_revision_at_freeze": "01ffa4bb1ee9c2df15bdd7b46f036adf2ba6cf71",
+  "repository_had_uncommitted_study_files": true,
+  "eligibility_rule": "Main-text eligible only if both arms complete on identical cases with complete per-case provenance; otherwise report as diagnostic artifact evidence."
+}

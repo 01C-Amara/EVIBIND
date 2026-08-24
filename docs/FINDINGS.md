@@ -960,7 +960,51 @@ An application at slack's end of that range should be putting values into
   meant to replace. All three are fixed; the third is the one that destroyed
   data and survived only because it was committed.
 
-## 24. A 45M model behind the boundary
+## 24. Confidence is selective prediction, not provenance
+
+Cactus [Needle 2](https://cactuscompute.com/needle) exposes constrained tool
+calling and a confidence head, making it a direct test of whether confidence
+gating can replace trusted replay over the same native proposal. Needle sees
+the ordinary JSON Schema and emits a literal call; it does not emit EviBind
+ActionIR. The follow-up freezes
+`cactus-needle==2.0.7`, engine 2.0.2 and its binary digest, native JSON-Schema
+transport, a 50/100 development/test split, and one output with no retry per
+case. One raw envelope supplies all four policy arms: native release,
+confidence gating, EviBind replay gating, and both gates.
+
+The development threshold matches the replay gate's 9/50 releases. On the untouched
+100 cases, the operating points are:
+
+| policy | released | correct | harmful | accepted precision |
+|---|---:|---:|---:|---:|
+| native | 59 | 26 | 17 | 44.1% |
+| confidence | 25 | 10 | 5 | 40.0% |
+| EviBind replay gate | 17 | 17 | **0** | **100%** |
+| confidence + replay gate | 10 | 10 | **0** | **100%** |
+
+The coverage match does not transfer exactly from development, which is why we
+do not tune on test. Confidence lowers harmful release but does not enforce
+provenance. The replay gate removes the tested harmful bindings at lower coverage; the
+combined policy preserves that precision but withholds seven further correct
+calls. Confidence and provenance are therefore composable, not interchangeable.
+
+With 20,000 category-cluster replicates, harmful-per-case is 0.17 [0.00, 0.34]
+for native release, 0.05 [0.00, 0.15] for confidence, and 0.00 [0.00, 0.00]
+for both replay-gated arms. Replay-gate coverage is 0.17 [0.00, 0.41]. These are
+empirical intervals across the ten observed categories, so the all-zero
+interval is not evidence of a zero population rate. Ordinary 95% Wilson
+intervals are [81.6%, 100%] for 17/17 accepted exact calls, [0, 18.4%] for 0/17
+harmful accepted calls, and [0, 3.7%] for 0/100 harmful cases. Report both
+uncertainty views with the point estimates. The transport remains a role-labelled flattened
+transcript, 64/150 total cases make no call, and the result isolates binding
+rather than general agentic ability.
+
+Schema fidelity is explicit: the new runner preserves JSON types, required
+fields, and constraints while filling only missing field descriptions. The
+generated-Python adapter below coerced every parameter to `str`; it is retained
+as a legacy diagnostic, not as the four-arm result.
+
+## 25. Legacy Needle generated-callable diagnostic
 
 Cactus [Needle 2](https://cactuscompute.com/needle) is a 45M-parameter
 tool-calling model with its own inference engine and a byte-level grammar
@@ -1022,3 +1066,25 @@ identical schema, with one-line human descriptions filled in, it calls
 correctly. A model this small reads descriptions to decide relevance. The
 descriptions live in the runner (`SLOT_DESCRIPTIONS`) so that no other model's
 request changed, and none of them hints at which value is the right one.
+
+## 26. Current-model AgentDojo replication
+
+The frozen banking replication uses AgentDojo 0.1.35 and GPT-5.4 nano on all
+144 attacked user/injection pairs plus a separate 16-task clean control. The
+native arm completes 57/144 tasks and the guarded arm 58/144. Successful
+attacks fall from 6/144 to 0/144: six paired improvements, no regressions,
+two-sided exact McNemar p=0.031. The two-way user/injection-task cluster
+interval for the -4.17-point change is [-12.5, 0.0]; utility changes +0.69
+points [-9.72, 11.11]. Clean completion is 7/16 versus 6/16.
+The ordinary 95% Wilson interval for 0/144 guarded attack successes is
+[0, 2.6%]; zero observed attacks is not zero population risk.
+
+Every case row and trace digest is saved; no checker raised. The result is
+deliberately scoped to banking, where 75% of critical arguments are
+re-derivable from trusted text. The model-free audit and banking choice
+preceded inspection of either GPT-5.4-nano arm. Earlier AgentDojo outcomes with
+another model family were already known, so this is a frozen current-model
+replication, not an outcome-blind suite comparison. It demonstrates that the integration can close
+the observed argument-level attacks without an aggregate attacked-task utility
+loss in this suite. It does not erase the cross-suite applicability boundary:
+the earlier ground-truth audit finds only 36% re-derivable arguments overall.

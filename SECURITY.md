@@ -4,6 +4,15 @@ EviBind is an admission layer. It does not replace tool authorization, network
 sandboxing, least-privilege credentials, rate limits, or human approval for
 high-impact actions.
 
+## Supported Versions
+
+EviBind is currently pre-1.0. Security fixes are applied to the newest tagged
+release and the default development branch. Older development snapshots and
+research bundles are immutable evidence records, not supported deployment
+branches. A paper bundle may contain an installable reference artifact; use the
+newest product release for deployment unless an experiment requires the pinned
+artifact.
+
 ## Deployment Requirements
 
 - Non-loopback binding is refused unless `EVIBIND_GATEWAY_API_KEY` is set.
@@ -71,6 +80,12 @@ Do not open a public issue for a vulnerability that exposes credentials, bypasse
 the release gate, or allows unauthorized execution. Send a private report to the
 repository maintainers with a minimal reproducer, affected version, and impact.
 Please avoid including real provider keys or sensitive request contents.
+
+When the repository is hosted publicly, enable the host's private vulnerability
+reporting feature and use its **Report a vulnerability** form. Maintainers should
+acknowledge a complete report within seven days, coordinate a fix and advisory
+privately, and credit the reporter unless anonymity is requested. This is a
+response target, not a warranty or service-level agreement.
 
 ## Public Release Hygiene
 

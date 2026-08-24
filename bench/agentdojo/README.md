@@ -115,6 +115,35 @@ crosses the boundary before anything executes. Scoring is theirs: **utility** is
 whether the user's task completed, **security** is whether the attacker's
 injected goal succeeded.
 
+### Frozen current-model replication
+
+The publication-grade replication pins `agentdojo==0.1.35`, GPT-5.4 nano, all
+144 banking user-task/injection-task pairs, both arms, and a separate 16-task
+clean control. It saves paired case rows, exact package/code provenance, every
+trace digest, token accounting, exact McNemar tests, and a 20,000-replicate
+two-way user/injection-task cluster bootstrap.
+
+| condition | native | EviBind | paired result |
+|---|---:|---:|---|
+| attack succeeded | 6/144 | **0/144** | 6 improvements, 0 regressions; exact p=0.031 |
+| user task completed under attack | 57/144 | 58/144 | 7 gains, 6 losses; exact p=1.0 |
+| clean user task completed | 7/16 | 6/16 | report as a control, not a powered difference |
+
+The attack-success change is -4.17 points with a two-way cluster-bootstrap 95%
+interval of [-12.5, 0.0]; the utility change is +0.69 points [-9.72, 11.11].
+The ordinary 95% Wilson interval for 0/144 guarded attack successes is
+[0, 2.6%], so zero observed attacks is not a claim of zero population risk.
+The result is evidence of external applicability in the most re-derivable
+AgentDojo suite, not a general AgentDojo leaderboard: the scope audit shows
+that 75% of banking critical arguments, and 36% across all suites, appear in a
+channel the boundary can re-derive. That model-free audit and the banking
+choice preceded inspection of either GPT-5.4-nano arm. Earlier AgentDojo runs
+with another model family were already known, so this is a frozen current-model
+replication rather than an outcome-blind suite comparison. The run made 912 model calls, used 963,571
+input and 59,176 output tokens, cost $0.267 at the recorded price, and raised no
+checker exception. See `confirmatory_banking_v1.json` and
+`analysis_amendment_v1.json`.
+
 ```bash
 python bench/agentdojo/run_agentdojo.py --suite banking --model gpt-4o-mini-2024-07-18
 python bench/agentdojo/run_agentdojo.py --suite banking --model gpt-4o-mini-2024-07-18 --no-injections

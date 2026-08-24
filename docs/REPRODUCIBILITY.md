@@ -113,11 +113,27 @@ python -m pytest -q \
 
 The source repository intentionally excludes generated model outputs and
 machine-local `work/` trees. Obtain the versioned paper evidence bundle from the
-release page or anonymous review host, verify its sidecar, and keep the archive
-unchanged. The bundle contains the final PDF, canonical sources, selected
-analyses, frozen configs, BoundaryBench, claim audit, and integrity manifest.
+release page or anonymous review host and keep the downloaded archive unchanged.
+The checked-in `evidence/paper-v8.json` record pins its filename, bundle digest,
+canonical paper digest, audit count, claim count, and empirical exclusions.
 
-From a full artifact checkout whose evidence paths match `paper/claims.yaml`:
+Verify the download before extraction:
+
+```bash
+python scripts/verify_evidence_bundle.py \
+  EviBind_ICLR_2027_evidence_bundle_20260821_v8.zip \
+  --sidecar EviBind_ICLR_2027_evidence_bundle_20260821_v8.zip.sha256 \
+  --release-metadata evidence/paper-v8.json
+```
+
+The verifier checks path safety, the single-root archive contract, complete
+internal-manifest coverage, every member digest, the canonical PDF, and
+agreement among the release record, `ARTIFACT.json`, and the paper audit. The
+bundle contains the final PDF, canonical sources, selected analyses, frozen
+configs, BoundaryBench, claim audit, and installable artifacts.
+
+After verification, from the extracted artifact root whose evidence paths match
+`paper/claims.yaml`:
 
 ```bash
 python tapbench/paper_audit.py
@@ -138,6 +154,11 @@ model identifiers, no-retry policy, and analysis code. Reproducers supply their
 own lawful model/API access and must report any provider revision or unavailable
 model rather than silently substituting it.
 
+The complete frozen entry points below live in the evidence bundle. The product
+checkout includes only the deterministic mechanism drivers and current public
+compatibility studies, so absence from the root checkout is not permission to
+reconstruct a protocol from prose.
+
 Relevant frozen entry points are:
 
 - `scripts/run_confirmatory_v1.sh`: two-model fresh-family study;
@@ -154,7 +175,19 @@ Relevant frozen entry points are:
   model protocol;
 - `scripts/analyze_confirmatory_inference.py` and
   `scripts/analyze_saturation_sweep.py`: response-only analyses; and
-- `scripts/run_stateful_mitigation_recovery_v4.sh`: matched stateful intervention.
+- `scripts/run_stateful_mitigation_recovery_v4.sh`: matched stateful intervention;
+- `bench/needle_confidence_freeze_v1.json`,
+  `bench/needle_confidence_analysis_amendment_v1.json`,
+  `bench/run_needle_confidence.py`, and
+  `bench/analyze_needle_confidence.py`: pinned Needle 2 dev/test comparison of
+  one shared native literal proposal under native, confidence-only, EviBind
+  replay-gateway, and combined release, with cluster and Wilson intervals; and
+- `bench/agentdojo/confirmatory_banking_v1.json`,
+  `bench/agentdojo/chronology_amendment_v1.json`,
+  `bench/agentdojo/run_agentdojo.py`, and `bench/agentdojo/analyze.py`:
+  current-model AgentDojo replication with per-case rows, trace hashes, exact
+  package provenance, suite-selection chronology, clustered comparisons, and
+  ordinary finite-sample intervals.
 
 Do not regenerate cases after observing outputs, retry failed generations, tune
 on the held-out families, or merge pre-inference transport attempts with model
@@ -177,7 +210,9 @@ hosted API; compare the reported metrics and archived request/response records.
 | Admissible top-2 alternative retention | `tapbench/candidate_top2_robustness.py` and its prospective protocol |
 | Fresh-family saturation | `scripts/analyze_saturation_sweep.py` and archived rows |
 | Stateful mechanism intervention | stateful analysis and failure-taxonomy artifacts |
-| Manuscript consistency | `tapbench/paper_audit.py`, `paper/claims.yaml` |
+| Confidence/provenance complementarity | frozen Needle 2 native-proposal gate study with category-cluster and Wilson analyses |
+| Third-party agent external validity | AgentDojo scope analysis and case-level live-run reports |
+| Manuscript consistency | `tapbench/paper_audit.py`, `paper/claims.yaml` in the verified evidence bundle |
 
 ## Reporting discrepancies
 

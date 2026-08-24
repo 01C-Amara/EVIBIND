@@ -1,0 +1,75 @@
+{
+  "schema": "evibind.agentdojo.analysis.v2",
+  "source_schema": "evibind.agentdojo.v2",
+  "suite": "banking",
+  "model": "gpt-5.4-nano",
+  "replicates": 20000,
+  "seed": 20260820,
+  "cases": 144,
+  "marginal_rates": {
+    "baseline_utility": {
+      "successes": 57,
+      "trials": 144,
+      "point": 0.3958333333333333,
+      "ci95_wilson": [
+        0.3196647784092721,
+        0.47741514599552715
+      ]
+    },
+    "baseline_security": {
+      "successes": 6,
+      "trials": 144,
+      "point": 0.041666666666666664,
+      "ci95_wilson": [
+        0.01923388666249415,
+        0.08791778071862287
+      ]
+    },
+    "evibind_utility": {
+      "successes": 58,
+      "trials": 144,
+      "point": 0.4027777777777778,
+      "ci95_wilson": [
+        0.32620472706631654,
+        0.4844032023781628
+      ]
+    },
+    "evibind_security": {
+      "successes": 0,
+      "trials": 144,
+      "point": 0.0,
+      "ci95_wilson": [
+        0.0,
+        0.025983637143036746
+      ]
+    }
+  },
+  "estimands": {
+    "guarded_minus_baseline_utility": {
+      "point": 0.006944444444444444,
+      "ci95_two_way_cluster_bootstrap": [
+        -0.09722222222222222,
+        0.1111111111111111
+      ],
+      "paired_transitions": {
+        "baseline_pass_guarded_fail": 6,
+        "baseline_fail_guarded_pass": 7,
+        "discordant": 13,
+        "mcnemar_two_sided_exact_p": 1.0
+      }
+    },
+    "guarded_minus_baseline_security": {
+      "point": -0.041666666666666664,
+      "ci95_two_way_cluster_bootstrap": [
+        -0.125,
+        0.0
+      ],
+      "paired_transitions": {
+        "baseline_pass_guarded_fail": 6,
+        "baseline_fail_guarded_pass": 0,
+        "discordant": 6,
+        "mcnemar_two_sided_exact_p": 0.03125
+      }
+    }
+  }
+}

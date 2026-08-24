@@ -1,0 +1,46 @@
+name: release-candidate
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  build-and-attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install release tools
+        run: python -m pip install -e ".[dev,research]"
+      - name: Verify source revision
+        run: |
+          python -m pytest -q
+          python -m tapbench.cli conformance
+          python -m ruff check .
+          python scripts/reproduce_public_artifact.py \
+            --output-dir /tmp/evibind-evidence \
+            --per-pattern 2 \
+            --per-effect-kind 1 \
+            --separation-repetitions 2 \
+            --fuzz-trials 260
+      - name: Build distributions
+        run: python -m build
+      - name: Audit distributions
+        run: python scripts/audit_release_archives.py dist/*.whl dist/*.tar.gz
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evibind-${{ github.ref_name }}
+          path: dist/*
+          if-no-files-found: error

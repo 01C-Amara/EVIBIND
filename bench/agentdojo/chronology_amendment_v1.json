@@ -1,0 +1,14 @@
+{
+  "schema": "evibind.analysis-amendment.v1",
+  "study": "agentdojo-banking-current-model-confirmatory-v1",
+  "amended_utc": "2026-08-20T18:30:00Z",
+  "reason": "Make suite-selection chronology and finite-sample uncertainty explicit after reviewer feedback.",
+  "model_outputs_changed": false,
+  "case_labels_changed": false,
+  "suite_selection": {
+    "rule": "Choose banking because the model-free trusted-turn re-derivability audit found the highest suite-level coverage (6/8, 75%).",
+    "chronology": "The audit and banking choice preceded inspection of either GPT-5.4-nano arm's outcomes.",
+    "prior_information": "AgentDojo outcomes from an earlier model family already existed; this study is therefore described as a frozen current-model replication and narrow applicability test, not an outcome-blind comparison across suites."
+  },
+  "analysis_change": "Add two-sided 95% Wilson intervals for marginal attack-success and utility rates; retain the paired McNemar test and two-way cluster bootstrap as the primary comparison."
+}

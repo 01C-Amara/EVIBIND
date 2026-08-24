@@ -23,6 +23,7 @@ Grok rows, and the result is labelled with its transport.
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import json
 import sys
 from pathlib import Path
@@ -30,6 +31,7 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent))
 
 from cases import build_cases, model_visible_request  # noqa: E402
 from run_bench import _config, score_case, summarize  # noqa: E402
@@ -85,6 +87,17 @@ def _described(tool_schema: dict[str, Any]) -> dict[str, Any]:
         if not spec.get("description"):
             spec["description"] = SLOT_DESCRIPTIONS.get(name, name)
     return schema
+
+
+def needle_schema(tool_schema: dict[str, Any]) -> dict[str, Any]:
+    """Convert an OpenAI tool wrapper without weakening its JSON Schema.
+
+    Needle accepts its documented ``{name, description, parameters}`` schema
+    directly. Passing that object preserves types, required fields, enums,
+    patterns, and ``additionalProperties``; the older generated-Python adapter
+    coerced every parameter to ``str`` and therefore measured a different API.
+    """
+    return _described(tool_schema)["function"]
 
 
 _TOOL_DIRECTORY: Path | None = None
@@ -169,6 +182,27 @@ def to_chat_completion(captured: list[dict[str, Any]], tool_name: str) -> dict[s
                                                       "arguments": json.dumps(captured[0])}}]}}]}
 
 
+def response_to_chat_completion(response: dict[str, Any]) -> dict[str, Any]:
+    calls = response.get("function_calls") or []
+    if response.get("type") != "call" or not calls:
+        return {"choices": [{"index": 0, "finish_reason": "stop",
+                             "message": {"role": "assistant",
+                                         "content": response.get("content") or "no call"}}]}
+    converted = []
+    for index, call in enumerate(calls):
+        converted.append({
+            "id": f"needle-{index}",
+            "type": "function",
+            "function": {
+                "name": call.get("name", ""),
+                "arguments": json.dumps(call.get("arguments") or {}),
+            },
+        })
+    return {"choices": [{"index": 0, "finish_reason": "tool_calls",
+                          "message": {"role": "assistant", "content": None,
+                                      "tool_calls": converted}}]}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="needle2")
@@ -188,20 +222,21 @@ def main() -> None:
         cases = cases[:args.limit]
     config = _config()
 
-    rows, no_call, failures = [], 0, 0
+    rows, no_call, failures, confidences = [], 0, 0, []
     for position, case in enumerate(cases, 1):
         payload = model_visible_request(case)
-        captured: list[dict[str, Any]] = []
+        response: dict[str, Any] = {}
         try:
-            tool = _recorder(_described(payload["tools"][0]), captured)
-            agent = needle.Needle(tools=[tool])
-            agent.run(_query(payload), max_new_tokens=args.max_new_tokens)
+            agent = needle.Needle(tools=[needle_schema(payload["tools"][0])])
+            response = agent.complete(_query(payload),
+                                      max_new_tokens=args.max_new_tokens)
         except Exception:  # noqa: BLE001 - a model that errors made no call
             failures += 1
-        if not captured:
+        if not (response.get("function_calls") or []):
             no_call += 1
-        tool_name = payload["tools"][0]["function"]["name"]
-        rows.append(score_case(case, to_chat_completion(captured, tool_name), config))
+        if response.get("confidence") is not None:
+            confidences.append(float(response["confidence"]))
+        rows.append(score_case(case, response_to_chat_completion(response), config))
         if position % 10 == 0:
             print(f"  {position}/{len(cases)}", flush=True)
 
@@ -210,6 +245,9 @@ def main() -> None:
     summary["no_call"] = no_call
     summary["argument_descriptions"] = SLOT_DESCRIPTIONS
     summary["runtime_failures"] = failures
+    summary["cactus_needle_version"] = importlib.metadata.version("cactus-needle")
+    summary["schema_transport"] = "native JSON Schema (types and constraints preserved)"
+    summary["confidence_observed"] = len(confidences)
     out = Path(args.out or f"bench/results/{args.label}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(summary, indent=2), encoding="utf-8")

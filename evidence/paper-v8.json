@@ -1,0 +1,27 @@
+{
+  "schema_version": "evibind.evidence_release.v1",
+  "release_id": "iclr2027-v8-20260821",
+  "bundle_filename": "EviBind_ICLR_2027_evidence_bundle_20260821_v8.zip",
+  "bundle_sha256": "c61ae0eaab315c542de1dbfbc27f1d8e7b8d9b5f45a5084098ecd95ca80fe5aa",
+  "download_url": null,
+  "archive_root": "EviBind_ICLR2027_artifact_v8",
+  "paper_sha256": "9444536fbdeb739ecf114803e3612db1fd67a2ded09759f91fe67bb893d63131",
+  "paper_audit_checks": 33,
+  "paper_claims": 29,
+  "paper_main_text_pages": 9,
+  "artifact_files": 220,
+  "scope": [
+    "anonymous manuscript and source",
+    "machine-readable claim audit",
+    "frozen protocols and amendments",
+    "selected case-level evidence",
+    "BoundaryBench-v1",
+    "installable Python artifacts"
+  ],
+  "not_claimed": [
+    "independently authored human-language evaluation",
+    "human policy-authoring cost or agreement",
+    "general routing or abstention performance",
+    "end-to-end business authorization"
+  ]
+}

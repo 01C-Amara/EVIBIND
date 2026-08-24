@@ -1,0 +1,13 @@
+{
+  "schema": "evibind.external-study-integrity.v1",
+  "created_utc": "2026-08-20T18:45:00Z",
+  "files": {
+    "agentdojo-banking-gpt-5.4-nano-confirmatory-v1.json": "3482f8c76ce838ae17aa7c3ccd0c761f7136672cddf14879b28bd0bf09a41c8e",
+    "agentdojo-banking-gpt-5.4-nano-confirmatory-v1-analysis.json": "3d979444b8771f5c3b4f34a8e137da128093c12912db375d33f20b78b32dd8ce",
+    "agentdojo-banking-clean-gpt-5.4-nano-confirmatory-v1.json": "2cb3255c153821f345f85dff2d1e0ba04b4fd81bd5a056c8265d13446bf12ab1",
+    "agentdojo-banking-gpt-5.4-nano-confirmatory-v1-traces.zip": "f0fbe2b4c6bd0c7bc148d113e600540e2c8ccb289c3aca58cd34e579e6fe6849",
+    "agentdojo-banking-clean-gpt-5.4-nano-confirmatory-v1-traces.zip": "0ff127f88ca072206337ca469426985d5bdf28359d1f06fe4123da84a0e73774",
+    "needle2-confidence-v1.json": "3ecca7aadb08774a96d28662e2258d803ec514076ffafa6bbf38667f4dc2a965",
+    "needle2-confidence-v1-analysis.json": "998caac738cf345f9b5756c0760c8f056a342262e4b1c9f6612e67dada2bc2e3"
+  }
+}

@@ -1,0 +1,285 @@
+{
+  "schema": "evibind.needle-confidence.analysis.v2",
+  "source_schema": "evibind.needle-confidence.v1",
+  "cluster_unit": "benchmark category",
+  "clusters": 10,
+  "replicates": 20000,
+  "seed": 20260820,
+  "arm_labels": {
+    "native": "native proposal",
+    "confidence": "confidence gate",
+    "evibind": "EviBind replay gate over native proposal",
+    "combined": "confidence plus EviBind replay gate"
+  },
+  "interval_note": "Category-cluster intervals resample only the ten observed categories. Wilson intervals are ordinary case-level binomial intervals and prevent an all-zero cluster bootstrap from being read as proof of a zero population rate.",
+  "arms": {
+    "native": {
+      "coverage": {
+        "point": 0.59,
+        "ci95_category_cluster_bootstrap": [
+          0.34,
+          0.83
+        ],
+        "ci95_wilson": [
+          0.4920143005341078,
+          0.6813268697886348
+        ],
+        "successes": 59,
+        "trials": 100
+      },
+      "correct_per_case": {
+        "point": 0.26,
+        "ci95_category_cluster_bootstrap": [
+          0.06,
+          0.53
+        ],
+        "ci95_wilson": [
+          0.18404698464748132,
+          0.3537098944918718
+        ],
+        "successes": 26,
+        "trials": 100
+      },
+      "harmful_per_case": {
+        "point": 0.17,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.34
+        ],
+        "ci95_wilson": [
+          0.10893566114059931,
+          0.25548004767601123
+        ],
+        "successes": 17,
+        "trials": 100
+      },
+      "accepted_exact_binding_precision": {
+        "point": 0.4406779661016949,
+        "ci95_category_cluster_bootstrap": [
+          0.1016949152542373,
+          0.7540983606557377
+        ],
+        "ci95_wilson": [
+          0.321502117676121,
+          0.5671064517084132
+        ],
+        "successes": 26,
+        "trials": 59
+      },
+      "harmful_release_rate": {
+        "point": 0.288135593220339,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.6304347826086957
+        ],
+        "ci95_wilson": [
+          0.188364996358223,
+          0.4138084657293992
+        ],
+        "successes": 17,
+        "trials": 59
+      }
+    },
+    "confidence": {
+      "coverage": {
+        "point": 0.25,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.5
+        ],
+        "ci95_wilson": [
+          0.17545211362287672,
+          0.34304463548061603
+        ],
+        "successes": 25,
+        "trials": 100
+      },
+      "correct_per_case": {
+        "point": 0.1,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.3
+        ],
+        "ci95_wilson": [
+          0.0552291370606751,
+          0.17436566150491345
+        ],
+        "successes": 10,
+        "trials": 100
+      },
+      "harmful_per_case": {
+        "point": 0.05,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.15
+        ],
+        "ci95_wilson": [
+          0.02154367915436796,
+          0.11175046923191913
+        ],
+        "successes": 5,
+        "trials": 100
+      },
+      "accepted_exact_binding_precision": {
+        "point": 0.4,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          1.0
+        ],
+        "ci95_wilson": [
+          0.23403302377747973,
+          0.5926054264103301
+        ],
+        "successes": 10,
+        "trials": 25
+      },
+      "harmful_release_rate": {
+        "point": 0.2,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          1.0
+        ],
+        "ci95_wilson": [
+          0.08860584686802572,
+          0.3913095036954033
+        ],
+        "successes": 5,
+        "trials": 25
+      }
+    },
+    "evibind": {
+      "coverage": {
+        "point": 0.17,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.41
+        ],
+        "ci95_wilson": [
+          0.10893566114059931,
+          0.25548004767601123
+        ],
+        "successes": 17,
+        "trials": 100
+      },
+      "correct_per_case": {
+        "point": 0.17,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.41
+        ],
+        "ci95_wilson": [
+          0.10893566114059931,
+          0.25548004767601123
+        ],
+        "successes": 17,
+        "trials": 100
+      },
+      "harmful_per_case": {
+        "point": 0.0,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.0
+        ],
+        "ci95_wilson": [
+          3.469446951953614e-18,
+          0.03699349820698568
+        ],
+        "successes": 0,
+        "trials": 100
+      },
+      "accepted_exact_binding_precision": {
+        "point": 1.0,
+        "ci95_category_cluster_bootstrap": [
+          1.0,
+          1.0
+        ],
+        "ci95_wilson": [
+          0.8156818649911483,
+          1.0
+        ],
+        "successes": 17,
+        "trials": 17
+      },
+      "harmful_release_rate": {
+        "point": 0.0,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.0
+        ],
+        "ci95_wilson": [
+          0.0,
+          0.1843181350088518
+        ],
+        "successes": 0,
+        "trials": 17
+      }
+    },
+    "combined": {
+      "coverage": {
+        "point": 0.1,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.3
+        ],
+        "ci95_wilson": [
+          0.0552291370606751,
+          0.17436566150491345
+        ],
+        "successes": 10,
+        "trials": 100
+      },
+      "correct_per_case": {
+        "point": 0.1,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.3
+        ],
+        "ci95_wilson": [
+          0.0552291370606751,
+          0.17436566150491345
+        ],
+        "successes": 10,
+        "trials": 100
+      },
+      "harmful_per_case": {
+        "point": 0.0,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.0
+        ],
+        "ci95_wilson": [
+          3.469446951953614e-18,
+          0.03699349820698568
+        ],
+        "successes": 0,
+        "trials": 100
+      },
+      "accepted_exact_binding_precision": {
+        "point": 1.0,
+        "ci95_category_cluster_bootstrap": [
+          1.0,
+          1.0
+        ],
+        "ci95_wilson": [
+          0.7224672001371107,
+          0.9999999999999999
+        ],
+        "successes": 10,
+        "trials": 10
+      },
+      "harmful_release_rate": {
+        "point": 0.0,
+        "ci95_category_cluster_bootstrap": [
+          0.0,
+          0.0
+        ],
+        "ci95_wilson": [
+          0.0,
+          0.2775327998628892
+        ],
+        "successes": 0,
+        "trials": 10
+      }
+    }
+  }
+}

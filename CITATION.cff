@@ -5,8 +5,10 @@ type: software
 authors:
   - name: "EviBind contributors"
 version: 0.4.0.dev0
-date-released: 2026-08-17
+date-released: 2026-08-21
 license: MIT
+repository-code: "https://github.com/01C-Amara/EVIBIND"
+url: "https://github.com/01C-Amara/EVIBIND"
 abstract: >-
   EviBind binds action-critical tool arguments to authenticated, replayable
   evidence derivations and materializes executable values in trusted code.

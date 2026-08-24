@@ -1,0 +1,15 @@
+{
+  "schema": "evibind.analysis-amendment.v1",
+  "study": "needle2-confidence-complementarity-v1",
+  "amended_utc": "2026-08-20T18:30:00Z",
+  "reason": "Clarify the model interface and add ordinary finite-sample uncertainty after reviewer feedback.",
+  "model_outputs_changed": false,
+  "case_labels_changed": false,
+  "release_decisions_changed": false,
+  "clarification": {
+    "model_interface": "Needle received the ordinary native JSON Schema and emitted one literal tool-call proposal per case.",
+    "shared_output": "Native, confidence, EviBind replay-gate, and combined policies evaluated the same single proposal.",
+    "evibind_arm": "The EviBind deployment gateway re-derived protected slots from admissible evidence or withheld; Needle did not emit literal-free ActionIR."
+  },
+  "analysis_change": "Add two-sided 95% Wilson intervals beside the observed-category cluster bootstrap intervals, including harmful accepted-call and harmful-per-case rates."
+}

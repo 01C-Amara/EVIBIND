@@ -19,15 +19,21 @@ names it knows.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
 import json
 import os
+import platform
+import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
+sys.path.insert(0, str(HERE.parents[1]))
 
 try:
     from agentdojo.agent_pipeline import (
@@ -51,6 +57,68 @@ except ImportError:  # pragma: no cover
 from budget import BudgetExceeded, MeteredOpenAI, UsageMeter  # noqa: E402
 from evibind_pipeline import EviBindToolCallGuard  # noqa: E402
 from run_bench import _resolve_key  # noqa: E402
+
+
+REPORT_SCHEMA = "evibind.agentdojo.v2"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _git_state(root: Path) -> dict[str, object]:
+    """Return a compact revision record without making the run depend on git."""
+    try:
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=root, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=root, check=True, capture_output=True, text=True,
+        ).stdout
+        return {"revision": revision, "tracked_files_dirty": bool(status.strip())}
+    except (OSError, subprocess.CalledProcessError):
+        return {"revision": None, "tracked_files_dirty": None}
+
+
+def _provenance() -> dict[str, object]:
+    root = HERE.parents[1]
+    files = [Path(__file__).resolve(), HERE / "evibind_pipeline.py",
+             HERE / "budget.py"]
+    versions: dict[str, str | None] = {}
+    for distribution in ("agentdojo", "openai", "evibind"):
+        try:
+            versions[distribution] = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            versions[distribution] = None
+    return {
+        "created_utc": datetime.now(timezone.utc).isoformat(),
+        "python": sys.version,
+        "platform": platform.platform(),
+        "packages": versions,
+        "git": _git_state(root),
+        "code_sha256": {
+            str(path.relative_to(root)).replace("\\", "/"): _sha256(path)
+            for path in files
+        },
+    }
+
+
+def _trace_inventory(logdir: Path) -> list[dict[str, object]]:
+    """Hash the model-visible audit trail without copying prompts into reports."""
+    rows = []
+    for path in sorted(logdir.rglob("*.json")):
+        rows.append({
+            "path": str(path.relative_to(logdir)).replace("\\", "/"),
+            "bytes": path.stat().st_size,
+            "sha256": _sha256(path),
+        })
+    return rows
 
 
 def _prune_unreadable(logdir: Path) -> int:
@@ -138,7 +206,14 @@ def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None,
         llm,
         ToolsExecutionLoop(elements),
     ])
-    pipeline.name = model if guard is None else f"{model}-evibind"
+    # AgentDojo 0.1.35 predates GPT-5 and refuses to construct its attack when
+    # no legacy model substring appears in the pipeline name. The name affects
+    # only the prose address inside `important_instructions` and trace paths;
+    # OpenAILLM still receives the exact `model` above. GPT-5 belongs to the
+    # benchmark's existing GPT-4-family address rather than a fabricated new
+    # attack condition.
+    trace_name = f"gpt-4o-2024-05-13__actual-{model}"
+    pipeline.name = trace_name if guard is None else f"{trace_name}-evibind"
     return pipeline
 
 
@@ -160,11 +235,27 @@ def summarise(results) -> dict:
         row["cases"] += 1
         row["succeeded"] += bool(succeeded)
 
+    case_rows = []
+    for key in sorted(utility, key=lambda item: tuple(map(str, item))):
+        user_task, injection_task = key
+        case_rows.append({
+            "user_task_id": str(user_task),
+            "injection_task_id": str(injection_task),
+            "utility": bool(utility[key]),
+            "security": bool(security[key]) if key in security else None,
+        })
+
     return {
         "cases": len(utility),
         "utility_passed": sum(bool(v) for v in utility.values()),
         "attack_succeeded": sum(bool(v) for v in security.values()),
         "by_injection_task": dict(sorted(by_task.items())),
+        "case_rows": case_rows,
+        "injection_task_utility": {
+            str(key): bool(value) for key, value in sorted(
+                (results.get("injection_tasks_utility_results") or {}).items()
+            )
+        },
     }
 
 
@@ -220,9 +311,23 @@ def main() -> None:
     checker_errors: dict[str, int] = {}
     _harden_checkers(suite, checker_errors)
     report: dict[str, object] = {
+        "schema": REPORT_SCHEMA,
         "benchmark": "AgentDojo",
         "source": "https://github.com/ethz-spylab/agentdojo (MIT)",
+        "benchmark_version": "v1",
         "suite": args.suite, "model": args.model, "attack": args.attack,
+        "protocol": {
+            "temperature": 0,
+            "study_level_model_output_retries": 0,
+            "transport_max_retries": 8,
+            "transport_timeout_seconds": 120,
+            "checker_exception_policy": "count as failure and report",
+            "case_selection": {
+                "user_tasks": args.user_tasks or "all",
+                "injection_tasks": args.injection_tasks or "all",
+            },
+        },
+        "provenance": _provenance(),
         "arms": {},
     }
 
@@ -324,6 +429,8 @@ def main() -> None:
               f"{checker_errors}")
     out.parent.mkdir(parents=True, exist_ok=True)
     report["usage"] = meter.summary()
+    report["completed_utc"] = datetime.now(timezone.utc).isoformat()
+    report["trace_inventory"] = _trace_inventory(logdir)
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"\nspend: ${meter.usd:.3f} over {meter.calls} model calls "
           f"({meter.input_tokens:,} in / {meter.output_tokens:,} out)")
