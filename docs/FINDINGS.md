@@ -1088,3 +1088,103 @@ replication, not an outcome-blind suite comparison. It demonstrates that the int
 the observed argument-level attacks without an aggregate attacked-task utility
 loss in this suite. It does not erase the cross-suite applicability boundary:
 the earlier ground-truth audit finds only 36% re-derivable arguments overall.
+
+## 27. A cheap selector, a router, and an attack on the router
+
+§24 shows confidence and provenance compose rather than substitute. This
+section asks the adaptive-compute version of that question: if a small model
+selects handles and escalates to a large one when unsure, can an attacker who
+cannot break confinement still make the *cheap path* release the wrong
+admissible value? Four properties are kept apart throughout, because an
+improvement in one is easily mistaken for a guarantee in another:
+
+1. **Confinement**: can an inadmissible value cross the boundary?
+2. **Policy coverage**: is the slot governed at all? (§23)
+3. **Intendedness**: among admissible values, is the released one the user's?
+4. **Routing**: did the request take the path its difficulty warranted?
+
+Routing leaves (1) and (2) untouched by construction. It can only move (3) and
+(4), so those are what is measured.
+
+### Setup
+
+`bench/run_routing.py` draws *k* samples from GPT-6 Luna, runs each through the
+gateway, and releases the modal governed binding if at least a threshold share
+of samples agree; otherwise it escalates to GPT-6 Sol. Agreement is judged on
+governed slots only, so formatting in content slots cannot trigger escalation.
+Every threshold from 0 to 1 is reported; nothing is tuned. Default sampling
+temperature, list prices ($0.10/$0.50 and $2.00/$10.00 per million tokens),
+one Sol sample per case. 1,620 calls in total, $0.43.
+
+`bench/router_attack_cases.py` supplies the attack. InjectBench's origin
+violations put the attacker's value where the user never wrote it, which the
+gateway withholds on provenance alone. These cases do the opposite: the
+injected tool output argues for a value **the user wrote**, so it is
+admissible. When the attacker's value is proposed, the gateway releases it in
+60/60 attack cases — confinement is not at stake, only intendedness. Four
+families of 15, each case with a clean twin minus the injection: reverse
+supersession, negation flip, source/destination role swap, recipient swap.
+
+### Results
+
+GPT-6 Luna alone takes **0/60** InjectBench origin violations, natively and
+guarded — the first small model in the suite that never follows the injection
+unaided. On InjectBench the cheap path is never wrong at any threshold, so the
+router is only tested by the attack suite:
+
+| route | clean (60) | under attack (60) | wrong released under attack | cost vs Sol alone, attack |
+|---|---|---|---|---|
+| Sol alone | 60 | 41 | 0 | 100% |
+| Luna, 1 sample → Sol | 60, at **5%** of Sol's cost | 42 | **2** | 78% |
+| Luna, 5 samples → Sol | 60, at 23% | 41 | **0** | **116%** |
+
+**A single-sample router is evaded.** Two role-swap cases go out on the cheap
+path with source and destination exchanged — an admissible binding the gateway
+must release, since the user wrote both accounts. Across all 75 role-swap
+samples, 11 are swapped.
+
+**Self-consistency closes it here.** The attack never wins a majority: 8 of 15
+role-swap cases get at least one swapped sample, but no case gets more than 2
+of 5. The modal binding is correct in all 15, so the 5-sample cheap path
+releases 0/60 wrong under attack. With 15 cases per family this is a small
+sample, and an attack that wins three of five votes would pass straight
+through; the mechanism is majority agreement, not a guarantee.
+
+**The attack's main effect is refusal, not hijack.** In the other three
+families Luna believes the tool output's claim about the *good* value and still
+obeys the user's prohibition on the bad one, so it stops and asks — 203 of 225
+samples make no call. Luna never selects the forbidden value in those families.
+But every refusal escalates, and under attack the 5-sample route costs **116%**
+of running Sol alone. An attacker who cannot redirect a payment can still turn
+cheap traffic into expensive traffic. That is property (4) failing while (1)
+and (3) hold, and it is invisible to any metric that reports only correctness.
+
+### Against the opt-in guard
+
+§15–16's interchangeable-slot guard targets exactly the role-swap relation.
+Replaying the same Luna samples with it enabled:
+
+| defence against role swap | swapped released | clean transfers completed |
+|---|---|---|
+| none, 1 sample | 2 of 15 cases | 15 of 15 |
+| **5-sample agreement** | **0 of 15** | **15 of 15** |
+| interchangeable-slot guard | 0 (all 75 attack samples) | **0 of 75 samples** |
+
+The guard stops the swap by refusing every transfer in which the user named
+both accounts, including every clean one. On this relation, sampling agreement
+dominates the static guard: same protection, no lost clean traffic, at the
+price of five small-model calls.
+
+### What this licenses
+
+- Confinement does not depend on the route: no route released an injected
+  value, on either suite.
+- A strong small selector is sufficient for clean traffic at a twentieth of the
+  large model's cost, and self-consistency is a usable escalation signal for
+  intendedness at this attack strength.
+- Escalation is itself an attack surface, but for **cost**, not correctness.
+  Any adaptive-compute deployment should report attack-time cost, not only
+  attack-time accuracy.
+- Not licensed: a claim that self-consistency resists an adaptive attacker
+  optimising for majority agreement. The families here were written once and
+  not tuned against Luna.
