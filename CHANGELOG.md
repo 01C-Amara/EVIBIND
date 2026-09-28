@@ -4,6 +4,23 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- **The paper targets TMLR.** ICLR 2027 was the first target and the paper was
+  not submitted there. `tapbench/paper_audit.py` now checks the canonical source
+  against a venue profile, TMLR by default: `tmlr.sty`/`tmlr.bst`, an anonymous
+  `\usepackage{tmlr}` build, a Broader Impact Statement (required by TMLR for
+  work with significant risk of harm), no link to the public repository (TMLR
+  forbids links to a version that names the authors), and no page limit,
+  because TMLR sets none. The ICLR profile is kept so the frozen v8 evidence
+  bundle, audited under ICLR rules, still reproduces. Audit version v6.
+- The ICLR-era planning documents, including the AI-simulated review panel,
+  moved to `docs/archive/iclr-2027/` under a banner saying they are history and
+  not evidence. "Strong accept" in their filenames was the target they were
+  written toward, not a verdict anyone gave.
+- Added `bench/run_routing.py`: a small selector releases a call only when its
+  self-consistency samples agree on the governed arguments, and escalates to a
+  large model otherwise. It measures cheap-path precision against coverage,
+  which a router keyed on abstention cannot see.
+
 ### Repository and release engineering
 
 - Separate the stable product path from the artifact-versioned research path in

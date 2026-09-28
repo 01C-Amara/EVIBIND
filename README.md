@@ -252,6 +252,11 @@ environment, audits release contents, and builds the container.
 
 ## Citation and license
 
+The accompanying paper is being prepared for submission to
+[TMLR](https://jmlr.org/tmlr/). ICLR 2027 was the first target and the paper
+was not submitted there; the planning documents from that period are archived
+in [`docs/archive/iclr-2027/`](docs/archive/iclr-2027/) and are not evidence.
+
 If EviBind supports published work, cite the software release and accompanying
 paper using [CITATION.cff](CITATION.cff). EviBind is available under the
 [MIT License](LICENSE).

@@ -9,7 +9,41 @@ from typing import Any, Mapping
 import yaml
 
 
-PAPER_AUDIT_VERSION = "evibind.paper_audit.v5"
+PAPER_AUDIT_VERSION = "evibind.paper_audit.v6"
+
+# Venue rules the canonical source is checked against. TMLR is the target;
+# ICLR 2027 was the first target, was never submitted to, and is kept only so
+# the frozen v8 evidence bundle - audited under ICLR rules - still reproduces.
+#
+# TMLR has no page limit ("a paper's length should be justified by its
+# content"), so it gets no page check rather than an invented one. It does
+# require a Broader Impact Statement when the work carries a significant risk
+# of harm, and a paper about attacks on tool-using agents does.
+VENUE_PROFILES: dict[str, dict[str, Any]] = {
+    "tmlr": {
+        "style_line": r"\usepackage{tmlr}",
+        "style_files": ("tmlr.sty", "tmlr.bst"),
+        "required_phrases": (r"\bibliographystyle{tmlr}",),
+        "required_headings": ("Broader Impact Statement",),
+        "page_limit": None,
+        "anonymous_links": True,
+    },
+    "iclr2027": {
+        "style_line": r"\usepackage{iclr2027_conference,times}",
+        "style_files": ("iclr2027_conference.sty", "iclr2027_conference.bst"),
+        "required_phrases": (
+            r"\author{Anonymous authors}",
+            r"\subsection*{AI use statement}",
+            r"\subsection*{Ethics statement}",
+            r"\subsection*{Reproducibility statement}",
+        ),
+        "required_headings": (),
+        "page_limit": 9,
+        "anonymous_links": False,
+    },
+}
+DEFAULT_VENUE = "tmlr"
+_HEADING = r"\\(?:sub)*section\*\{{{}\}}"
 _CLAIM = re.compile(r"\\claim\{([^}]+)\}")
 _CITATION = re.compile(r"\\cite[pt]?\{([^}]+)\}")
 _BIB_ENTRY = re.compile(r"@\w+\{([^,\s]+),")
@@ -89,7 +123,59 @@ def _approx(left: Any, right: Any, tolerance: float = 1e-9) -> bool:
     return left == right
 
 
-def audit_paper(root: str | Path | None = None) -> dict[str, Any]:
+def _identifying_urls(repository: Path) -> list[str]:
+    """URLs that would name the authors if they appeared in a blind submission.
+
+    TMLR: authors "must not link to another version that includes the authors'
+    names". The public repository is exactly such a version, and it is the link
+    most likely to be pasted into a paper about its own code.
+    """
+    citation = repository / "CITATION.cff"
+    if not citation.is_file():
+        return []
+    record = yaml.safe_load(citation.read_text(encoding="utf-8")) or {}
+    urls = {record.get("repository-code"), record.get("url")}
+    return sorted(
+        url.split("://", 1)[-1].rstrip("/")
+        for url in urls
+        if isinstance(url, str) and url
+    )
+
+
+def venue_failures(
+    main: str,
+    tex: str,
+    paper: Path,
+    venue: str,
+    identifying_urls: list[str] = (),
+) -> list[str]:
+    """Venue-specific submission rules; separate so they can be tested alone."""
+    if venue not in VENUE_PROFILES:
+        raise PaperAuditError(f"unknown venue {venue!r}; known: {sorted(VENUE_PROFILES)}")
+    profile = VENUE_PROFILES[venue]
+    failures: list[str] = []
+    if profile["style_line"] not in main:
+        failures.append(f"missing_submission_element:{profile['style_line']}")
+    for phrase in profile["required_phrases"]:
+        if phrase not in main:
+            failures.append(f"missing_submission_element:{phrase}")
+    for heading in profile["required_headings"]:
+        if not re.search(_HEADING.format(re.escape(heading)), tex):
+            failures.append(f"missing_section:{heading}")
+    for name in profile["style_files"]:
+        if not (paper / name).is_file():
+            failures.append(f"missing_official_style:{name}")
+    if profile["anonymous_links"]:
+        for url in identifying_urls:
+            if url in tex:
+                failures.append(f"deanonymizing_link:{url}")
+    return failures
+
+
+def audit_paper(
+    root: str | Path | None = None,
+    venue: str = DEFAULT_VENUE,
+) -> dict[str, Any]:
     repository = Path(root).resolve() if root is not None else Path(__file__).resolve().parents[1]
     paper = repository / "paper"
     source_paths = [
@@ -143,22 +229,12 @@ def audit_paper(root: str | Path | None = None) -> dict[str, Any]:
         failures.append("missing_citations:" + ",".join(sorted(missing)))
     checks.append("citations_resolve")
 
-    style_requirements = (
-        r"\usepackage{iclr2027_conference,times}",
-        r"\author{Anonymous authors}",
-        r"\subsection*{AI use statement}",
-        r"\subsection*{Ethics statement}",
-        r"\subsection*{Reproducibility statement}",
+    failures.extend(
+        venue_failures(main, tex, paper, venue, _identifying_urls(repository))
     )
-    for phrase in style_requirements:
-        if phrase not in main:
-            failures.append(f"missing_submission_element:{phrase}")
     if main.find(r"\bibliography{references}") > main.find(r"\appendix"):
         failures.append("appendix_precedes_bibliography")
-    for name in ("iclr2027_conference.sty", "iclr2027_conference.bst"):
-        if not (paper / name).is_file():
-            failures.append(f"missing_official_style:{name}")
-    checks.append("iclr2027_structure_and_disclosures_present")
+    checks.append(f"{venue}_structure_and_disclosures_present")
 
     aux_path = paper / "main.aux"
     log_path = paper / "main.log"
@@ -170,12 +246,15 @@ def audit_paper(root: str | Path | None = None) -> dict[str, Any]:
         aux = aux_path.read_text(encoding="utf-8", errors="replace")
         match = re.search(r"\\newlabel\{main-text-end\}\{\{[^}]*\}\{(\d+)\}", aux)
         main_end_page = int(match.group(1)) if match else None
-        if main_end_page is None or main_end_page > 9:
-            failures.append(f"main_text_page_limit:{main_end_page}")
+        page_limit = VENUE_PROFILES[venue]["page_limit"]
+        if main_end_page is None:
+            failures.append("main_text_end_label_missing")
+        elif page_limit is not None and main_end_page > page_limit:
+            failures.append(f"main_text_page_limit:{main_end_page}>{page_limit}")
         log = log_path.read_text(encoding="utf-8", errors="replace")
         if "Overfull \\hbox" in log or "undefined references" in log.lower():
             failures.append("latex_layout_or_reference_warning")
-    checks.append("canonical_pdf_build_and_nine_page_limit_pass")
+    checks.append("canonical_pdf_build_and_venue_page_rule_pass")
 
     formal_requirements = (
         r"\mathrm{Span}(m,b_0,b_1,p)",
@@ -962,6 +1041,7 @@ def audit_paper(root: str | Path | None = None) -> dict[str, Any]:
 
     report = {
         "version": PAPER_AUDIT_VERSION,
+        "venue": venue,
         "passed": not failures,
         "failures": failures,
         "checks": checks,
@@ -998,7 +1078,13 @@ def audit_paper(root: str | Path | None = None) -> dict[str, Any]:
 
 
 def main() -> int:
-    print(json.dumps(audit_paper(), indent=2, sort_keys=True))
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Audit the canonical paper source.")
+    parser.add_argument("--root", default=None)
+    parser.add_argument("--venue", default=DEFAULT_VENUE, choices=sorted(VENUE_PROFILES))
+    args = parser.parse_args()
+    print(json.dumps(audit_paper(args.root, venue=args.venue), indent=2, sort_keys=True))
     return 0
 
 

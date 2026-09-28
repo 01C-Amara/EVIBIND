@@ -2,6 +2,12 @@
 
 Audit date: 2026-07-28
 
+> This audit was run against the ICLR 2027 build of the manuscript. That
+> build was never submitted; the paper now targets TMLR. The verified-artifact
+> table below still holds, but the page and layout checks in *Build Audit*
+> describe the ICLR build. The current venue gate is
+> `python -m tapbench.paper_audit --venue tmlr`.
+
 ## Verified Artifacts
 
 | Claim | Frozen source | Status |
@@ -97,7 +103,7 @@ disclosure.
   and AI-generated labels do not satisfy the independent-human requirement.
 - Single-call, non-streaming admission is the evaluated product boundary.
 - AI-simulated reviewer perspectives are recorded only in
-  `docs/ICLR_SYNTHETIC_REVIEW_PANEL.md`; they are not human evidence.
+  `docs/archive/iclr-2027/ICLR_SYNTHETIC_REVIEW_PANEL.md`; they are not human evidence.
   Multi-call planning, live-service authorization, and long-horizon completion
   remain out of scope and are named as limitations.
 
