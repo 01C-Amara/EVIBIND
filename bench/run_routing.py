@@ -57,7 +57,32 @@ from run_bench import (  # noqa: E402
     _extract_call,
     _resolve_key,
 )
+from router_attack_cases import build_router_attack_cases  # noqa: E402
 from tapbench.gateway import protect_chat_completion  # noqa: E402
+
+SUITES = {
+    "injectbench": build_cases,
+    "router_attack": build_router_attack_cases,
+}
+
+
+def _splits(suite: str) -> dict[str, Any]:
+    """How a suite's results are cut. A router-attack number is only meaningful
+    beside its clean twin, so that suite splits by variant first."""
+    if suite == "router_attack":
+        out: dict[str, Any] = {
+            "attack": lambda c: c["variant"] == "attack",
+            "clean": lambda c: c["variant"] == "clean",
+        }
+        for family in sorted({c["category"] for c in build_router_attack_cases()}):
+            out[f"attack / {family}"] = (
+                lambda c, f=family: c["variant"] == "attack" and c["category"] == f)
+        return out
+    return {
+        "all": lambda c: True,
+        "origin violations": lambda c: c["category"] in ORIGIN_CATEGORIES,
+        "selection errors": lambda c: c["category"] not in ORIGIN_CATEGORIES,
+    }
 
 ABSTAIN = "<withheld>"
 
@@ -113,7 +138,9 @@ def _tokens(response: dict[str, Any] | None) -> int:
 def cmd_sample(args: argparse.Namespace) -> None:
     api_key = _resolve_key(args.api_key)
     base = args.base_url.rstrip("/")
-    out = Path(args.out or f"bench/results/routing/{args.model}.samples.jsonl")
+    suffix = "" if args.suite == "injectbench" else f".{args.suite}"
+    out = Path(args.out
+               or f"bench/results/routing/{args.model}{suffix}.samples.jsonl")
     out.parent.mkdir(parents=True, exist_ok=True)
 
     done: set[tuple[str, int]] = set()
@@ -123,30 +150,60 @@ def cmd_sample(args: argparse.Namespace) -> None:
                 if r.get("response") is not None:
                     done.add((r["case_id"], r["sample"]))
 
-    jobs = [(case, i) for case in build_cases() for i in range(args.k)
+    jobs = [(case, i) for case in SUITES[args.suite]() for i in range(args.k)
             if (case["case_id"], i) not in done]
-    print(f"{len(done)} samples already on disk, {len(jobs)} to draw")
+    print(f"{len(done)} samples already on disk, {len(jobs)} to draw", flush=True)
 
     def ask(job):
         case, i = job
-        body = adapters.to_chat(model_visible_request(case), args.model)
+        payload = model_visible_request(case)
         try:
+            if args.endpoint == "responses":
+                body = adapters.to_responses(payload, args.model, args.reasoning_effort)
+                raw = adapters.post_json(base + "/responses", body, api_key,
+                                         timeout=args.timeout)
+                return case, i, adapters.from_responses(raw), ""
+            body = adapters.to_chat(payload, args.model, effort=args.reasoning_effort)
             return case, i, adapters.post_json(base + "/chat/completions", body,
                                                api_key, timeout=args.timeout), ""
+        except adapters.QuotaExhausted:
+            raise
         except Exception as exc:  # noqa: BLE001 - recorded, not swallowed
             return case, i, None, str(exc)[:200]
 
-    failed = 0
-    with out.open("a", encoding="utf-8") as fh:
-        for case, i, response, error in adapters.map_concurrent(jobs, ask,
-                                                                args.concurrency):
+    # Each sample is written and flushed the moment it returns. Collecting the
+    # whole batch first meant a process killed at call 700 of 750 left an
+    # empty file and nothing on stdout - the first attempt at this run did
+    # exactly that. Appending as results land also makes `done` above a real
+    # resume point.
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    failed = written = 0
+    with out.open("a", encoding="utf-8") as fh, \
+            ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as pool:
+        futures = [pool.submit(ask, job) for job in jobs]
+        for future in as_completed(futures):
+            try:
+                case, i, response, error = future.result()
+            except adapters.QuotaExhausted as exc:
+                for pending in futures:
+                    pending.cancel()
+                print(f"\nstopping: the API account has no credit left "
+                      f"({written} samples were saved and will be reused)\n  {exc}"[:400],
+                      flush=True)
+                raise SystemExit(2) from exc
             if response is None:
                 failed += 1
-                print(f"{case['case_id']:12s} #{i} ERROR {error}")
+                print(f"{case['case_id']:12s} #{i} ERROR {error}", flush=True)
                 continue
             fh.write(json.dumps({"case_id": case["case_id"], "sample": i,
                                  "response": response}) + "\n")
-    print(f"wrote {out}  ({failed} failed; re-run to fill them in)")
+            fh.flush()
+            written += 1
+            if written % 50 == 0:
+                print(f"  {written}/{len(jobs)}", flush=True)
+    print(f"wrote {written} to {out}  ({failed} failed; re-run to fill them in)",
+          flush=True)
 
 
 # ---------------------------------------------------------------- analysis
@@ -164,7 +221,7 @@ def _route(samples: list[tuple[Any, str]], threshold: float):
 
 def cmd_analyze(args: argparse.Namespace) -> None:
     config = _config()
-    cases = {case["case_id"]: case for case in build_cases()}
+    cases = {case["case_id"]: case for case in SUITES[args.suite]()}
     small = _load_responses(Path(args.samples))
     large = _load_responses(Path(args.large))
 
@@ -176,6 +233,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         samples = [_released(case, r.get("response"), config) for r in rows]
         big = large.get(case_id, [{}])[0].get("response")
         per_case[case_id] = {
+            "case": case,
             "category": case["category"],
             "samples": samples,
             "small_tokens": sum(_tokens(r.get("response")) for r in rows),
@@ -187,16 +245,12 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     n = len(per_case)
     print(f"{n} cases, k = {k} small-model samples each\n")
 
-    splits = {
-        "all": lambda c: True,
-        "origin violations": lambda c: c in ORIGIN_CATEGORIES,
-        "selection errors": lambda c: c not in ORIGIN_CATEGORIES,
-    }
+    splits = _splits(args.suite)
     thresholds = [t / 10 for t in range(0, 11, 2)] if k > 1 else [0.0]
-    report: dict[str, Any] = {"cases": n, "k": k, "splits": {}}
+    report: dict[str, Any] = {"suite": args.suite, "cases": n, "k": k, "splits": {}}
 
     for split, keep in splits.items():
-        rows = [v for v in per_case.values() if keep(v["category"])]
+        rows = [v for v in per_case.values() if keep(v["case"])]
         print(f"== {split} ({len(rows)} cases)")
         print(f"{'agree >=':>9} {'kept cheap':>10} {'cheap precision':>15} "
               f"{'cheap & wrong':>13} {'escalated':>9} {'final correct':>13} "
@@ -230,11 +284,17 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         report["splits"][split] = table
         print()
 
-    large_only = Counter(v["large"] for v in per_case.values())
-    large_tokens = sum(v["large_tokens"] for v in per_case.values())
-    print(f"large model alone: correct {large_only['correct']}, harmful "
-          f"{large_only['harmful']}, other {large_only['other']}, tokens {large_tokens}")
-    report["large_alone"] = {"final": dict(large_only), "tokens": large_tokens}
+    report["large_alone"] = {}
+    for split, keep in splits.items():
+        if " / " in split:
+            continue
+        rows = [v for v in per_case.values() if keep(v["case"])]
+        large_only = Counter(v["large"] for v in rows)
+        large_tokens = sum(v["large_tokens"] for v in rows)
+        print(f"large model alone, {split}: correct {large_only['correct']}, harmful "
+              f"{large_only['harmful']}, other {large_only['other']}, "
+              f"abstain {large_only['abstain']}, tokens {large_tokens}")
+        report["large_alone"][split] = {"final": dict(large_only), "tokens": large_tokens}
 
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
@@ -249,6 +309,10 @@ def main() -> None:
 
     p = sub.add_parser("sample", help="draw k samples per case from a small model")
     p.add_argument("--model", required=True)
+    p.add_argument("--suite", choices=sorted(SUITES), default="injectbench")
+    p.add_argument("--endpoint", choices=("chat", "responses"), default="chat",
+                   help="GPT-5.6 tiers reject function tools on chat completions")
+    p.add_argument("--reasoning-effort", default=None)
     p.add_argument("--k", type=int, default=5)
     p.add_argument("--api-key", default="file:.env")
     p.add_argument("--base-url", default="https://api.openai.com/v1")
@@ -258,6 +322,7 @@ def main() -> None:
     p.set_defaults(fn=cmd_sample)
 
     p = sub.add_parser("analyze", help="sweep the agreement threshold offline")
+    p.add_argument("--suite", choices=sorted(SUITES), default="injectbench")
     p.add_argument("--samples", required=True)
     p.add_argument("--large", required=True)
     p.add_argument("--k", type=int, default=0, help="use only the first k samples")
