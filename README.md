@@ -163,6 +163,7 @@ replay over ordinary literal tool calls.
 | Multi-relation binding | Qwen3.6-35B-A3B 88.8% and GPT-5.6-Luna 97% exact recall; destination composition remains the outlier | alternative-preserving semantic binding |
 | Needle 2 replay | 17 harmful native releases in 59 released calls; 0 in 17 replay-gated releases | confidence and provenance are complementary |
 | AgentDojo banking replay | successful attacks 6/144 → 0/144; task completion 57/144 → 58/144 | narrow external compatibility evidence |
+| Routing under attack | GPT-6 Luna → Sol: admissible role swaps released 2/60 with one sample, 0/60 with five-sample agreement; attack-time cost 116% of Sol alone | escalation guards intendedness, but is itself a cost attack surface |
 
 Needle and AgentDojo use compatibility replay: their models emit ordinary
 literal calls, then EviBind re-derives or withholds protected values. They do not
