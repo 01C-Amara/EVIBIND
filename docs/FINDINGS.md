@@ -832,6 +832,14 @@ definitions carry an optional identifier-shaped string parameter, 93 in total.
 The released share of governed calls barely moves — 56% to 53% — so the
 stricter rule governs far more slots at roughly the same utility rate.
 
+> **Corrected in §28.** 90 of those 210 withholds were not the boundary. The
+> serving path ignored `allow_noncritical_opaque_literals`, so a call was
+> withheld whenever a *content* argument - a date, a message body - was absent
+> from the user's turn. Under the fix the same model-free replay releases
+> **330** and withholds **120** of the 450 governed calls (73% released), and
+> every one of the 120 has a governed value that is genuinely absent from the
+> user's turn.
+
 The per-model native attack counts in §12 are unaffected: whether a model calls
 the attacker's tool has nothing to do with how the slots are annotated. The
 guarded column could in principle change, so it was re-measured for the only
