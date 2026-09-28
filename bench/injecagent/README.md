@@ -203,9 +203,15 @@ That is the gap an argument-level boundary is for.
 
 | outcome | n |
 |---|---|
-| released unchanged | 240 |
-| withheld | 210 |
+| released unchanged | **330** |
+| withheld | **120** |
 | no governed slot in that tool | 60 |
+
+These are the counts after the gateway fix in `docs/FINDINGS.md` §28. The
+earlier table read 240 released and 210 withheld: 90 of those withholds came
+from a gateway defect that required *content* arguments - dates, message
+bodies - to appear in the user's turn as well, so the statement below was not
+true of them. It is true of all 120 that remain, checked case by case.
 
 Every one of the withheld is withheld because the value **is not in the
 user's turn** — `email_id: "email001"`, `doctor_id: "ElizabethGreen_Dentist"`,
