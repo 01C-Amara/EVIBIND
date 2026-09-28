@@ -4,6 +4,21 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- **Routing measured, and the router attacked** (`docs/FINDINGS.md` §27).
+  GPT-6 Luna selects, GPT-6 Sol takes escalations, 1,620 calls for $0.43. A
+  new router-attack suite (60 cases plus clean twins) injects for values the
+  user wrote, so they are admissible and only intendedness is at stake. A
+  single-sample router releases 2/60 swapped transfers; five-sample agreement
+  releases 0/60, because the attack never wins more than 2 of 5 votes. The
+  opt-in interchangeable-slot guard also stops the swap but refuses 75/75 clean
+  transfers. The attack's main effect is refusal: 203 of 225 samples in three
+  families make no call, escalation absorbs them, and the adaptive route then
+  costs 116% of the large model alone. Escalation is a cost attack surface.
+- GPT-6 Luna joins InjectBench: 0/60 harmful natively and guarded.
+- AgentDojo can drive models that only take tools on `/v1/responses`
+  (`--api responses`), and the spend meter now counts Responses usage; it
+  previously read zero for such runs, so its ceiling could not trip.
+
 - **The paper targets TMLR.** ICLR 2027 was the first target and the paper was
   not submitted there. `tapbench/paper_audit.py` now checks the canonical source
   against a venue profile, TMLR by default: `tmlr.sty`/`tmlr.bst`, an anonymous
