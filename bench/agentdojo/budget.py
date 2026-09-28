@@ -43,8 +43,13 @@ class UsageMeter:
             return
         with self._lock:
             self.calls += 1
-            self.input_tokens += int(getattr(usage, "prompt_tokens", 0) or 0)
-            self.output_tokens += int(getattr(usage, "completion_tokens", 0) or 0)
+            # chat completions report prompt/completion tokens; the Responses
+            # API reports input/output tokens. Reading only the first pair let a
+            # Responses-backed run spend with the meter reading zero.
+            self.input_tokens += int(getattr(usage, "prompt_tokens", 0)
+                                     or getattr(usage, "input_tokens", 0) or 0)
+            self.output_tokens += int(getattr(usage, "completion_tokens", 0)
+                                      or getattr(usage, "output_tokens", 0) or 0)
 
     def check(self) -> None:
         if self.ceiling_usd is not None and self.usd >= self.ceiling_usd:
@@ -74,6 +79,10 @@ class _MeteredCompletions:
         return getattr(self._inner, item)
 
 
+class _MeteredResponses(_MeteredCompletions):
+    """``client.responses`` metered exactly like chat completions."""
+
+
 class _MeteredChat:
     def __init__(self, inner: Any, meter: UsageMeter) -> None:
         self._inner = inner
@@ -90,6 +99,7 @@ class MeteredOpenAI:
         self._client = client
         self.meter = meter
         self.chat = _MeteredChat(client.chat, meter)
+        self.responses = _MeteredResponses(client.responses, meter)
 
     def __getattr__(self, item: str) -> Any:
         return getattr(self._client, item)
