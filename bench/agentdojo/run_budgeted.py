@@ -38,7 +38,7 @@ JOBS: tuple[tuple[str, bool], ...] = (
 def run_one(python: str, suite: str, injected: bool, model: str,
             remaining: float, prices: tuple[float, float],
             arms: list[str] | None = None,
-            resume: bool = False) -> dict | None:
+            resume: bool = False, api: str = "chat") -> dict | None:
     tag = "" if injected else "-clean"
     out = REPO / "bench" / "results" / f"agentdojo-{suite}{tag}-{model}.json"
     cmd = [python, str(HERE / "run_agentdojo.py"),
@@ -52,6 +52,7 @@ def run_one(python: str, suite: str, injected: bool, model: str,
         cmd += ["--arms", *arms]
     if resume:
         cmd.append("--resume")
+    cmd += ["--api", api]
     print(f"\n=== {suite}{tag} (budget left ${remaining:.2f}) ===", flush=True)
     proc = subprocess.run(cmd, cwd=str(REPO), text=True,
                           capture_output=True, encoding="utf-8", errors="replace")
@@ -90,6 +91,8 @@ def main() -> None:
                         help="restrict the queue to these suites, in order")
     parser.add_argument("--python", default=sys.executable,
                         help="interpreter that has agentdojo installed")
+    parser.add_argument("--api", choices=("chat", "responses"), default="chat",
+                        help="GPT-5.6 and GPT-6 need /v1/responses for tools")
     parser.add_argument("--input-per-1m", type=float, default=0.15)
     parser.add_argument("--output-per-1m", type=float, default=0.60)
     args = parser.parse_args()
@@ -115,7 +118,7 @@ def main() -> None:
                 break
             report = run_one(args.python, suite, injected, model, remaining,
                              (args.input_per_1m, args.output_per_1m),
-                             args.arms, args.resume)
+                             args.arms, args.resume, args.api)
             if report is None:
                 continue
             usage = report.get("usage") or {}

@@ -184,8 +184,11 @@ def _harden_checkers(suite, counters: dict[str, int]) -> None:
 
 
 def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None,
-                   meter: UsageMeter | None = None):
+                   meter: UsageMeter | None = None, api: str = "chat",
+                   reasoning_effort: str | None = None):
     import openai
+
+    from responses_llm import OpenAIResponsesLLM
 
     # A single transient connection error used to end a whole arm: the
     # workspace guarded arm died two thirds of the way through a 240-case run
@@ -197,7 +200,8 @@ def build_pipeline(model: str, api_key: str, guard: EviBindToolCallGuard | None,
     client = openai.OpenAI(api_key=api_key, max_retries=8, timeout=120.0)
     if meter is not None:
         client = MeteredOpenAI(client, meter)
-    llm = OpenAILLM(client, model)
+    llm = (OpenAIResponsesLLM(client, model, reasoning_effort) if api == "responses"
+           else OpenAILLM(client, model))
     elements = [ToolsExecutor(), llm] if guard is None else [guard, ToolsExecutor(), llm]
     pipeline = AgentPipeline([
         SystemMessage("You are an AI language model who assists the user by "
@@ -264,6 +268,10 @@ def main() -> None:
     parser.add_argument("--suite", default="banking")
     parser.add_argument("--model", default="gpt-4o-mini-2024-07-18")
     parser.add_argument("--attack", default="important_instructions")
+    parser.add_argument("--api", choices=("chat", "responses"), default="chat",
+                        help="GPT-5.6 and GPT-6 only accept function tools on "
+                             "/v1/responses while reasoning is on")
+    parser.add_argument("--reasoning-effort", default=None)
     parser.add_argument("--api-key", default="file:.env")
     parser.add_argument("--user-tasks", nargs="*", default=None)
     parser.add_argument("--injection-tasks", nargs="*", default=None)
@@ -337,6 +345,8 @@ def main() -> None:
     report["resumed_from_cache"] = bool(args.resume)
     report["pricing"] = {"input_per_1m": args.input_per_1m,
                          "output_per_1m": args.output_per_1m}
+    report["api"] = args.api
+    report["reasoning_effort"] = args.reasoning_effort
 
     def _save() -> None:
         """Write what we have so far.
@@ -369,7 +379,9 @@ def main() -> None:
 
     for arm in args.arms:
         guard = EviBindToolCallGuard() if arm == "evibind" else None
-        pipeline = build_pipeline(args.model, api_key, guard, meter)
+        pipeline = build_pipeline(args.model, api_key, guard, meter,
+                                  api=args.api,
+                                  reasoning_effort=args.reasoning_effort)
         attack = load_attack(args.attack, suite, pipeline)
         # AgentDojo's TraceLogger reads logdir off the active logger on the
         # stack, so the run has to happen inside an OutputLogger context.
