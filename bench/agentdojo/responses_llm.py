@@ -15,6 +15,12 @@ GPT-5.6 and GPT-6 through InjectBench.
 Nothing else in the pipeline changes: the guard, the tool executor, the attack
 and AgentDojo's scoring all see the same ``ChatAssistantMessage`` shape that
 ``OpenAILLM`` produces.
+
+One known difference: reasoning items are not carried between turns. Requests
+are stateless (``store=False``) and AgentDojo's message type has nowhere to
+keep them, so each turn reasons afresh. Both arms are affected identically, so
+the guarded-versus-baseline comparison is fair, but absolute task completion
+for a reasoning model may be understated.
 """
 
 from __future__ import annotations
@@ -78,9 +84,10 @@ def _from_output(response: Any) -> ChatAssistantMessage:
             try:
                 args = json.loads(item.arguments or "{}")
             except json.JSONDecodeError:
-                # a malformed call is the model's failure; hand AgentDojo an
-                # empty call rather than crash the suite, as OpenAILLM would
-                # have surfaced it as a tool error
+                # A malformed call is the model's failure. OpenAILLM would raise
+                # here and end the suite; an empty call instead reaches the
+                # executor, fails as a tool error, and is scored like any other
+                # failed step.
                 args = {}
             calls.append(FunctionCall(function=item.name, args=args, id=item.call_id))
         elif kind == "message":

@@ -6,39 +6,39 @@
     "all": [
       {
         "threshold": 0.0,
-        "kept_cheap": 103,
+        "kept_cheap": 102,
         "cheap_precision": 1.0,
         "cheap_and_wrong": 0,
-        "escalated": 47,
+        "escalated": 48,
         "final": {
           "correct": 104,
           "abstain": 46
         },
-        "tokens": 179453
+        "tokens": 179637
       },
       {
         "threshold": 0.2,
-        "kept_cheap": 103,
+        "kept_cheap": 102,
         "cheap_precision": 1.0,
         "cheap_and_wrong": 0,
-        "escalated": 47,
+        "escalated": 48,
         "final": {
           "correct": 104,
           "abstain": 46
         },
-        "tokens": 179453
+        "tokens": 179637
       },
       {
         "threshold": 0.4,
-        "kept_cheap": 103,
+        "kept_cheap": 102,
         "cheap_precision": 1.0,
         "cheap_and_wrong": 0,
-        "escalated": 47,
+        "escalated": 48,
         "final": {
           "correct": 104,
           "abstain": 46
         },
-        "tokens": 179453
+        "tokens": 179637
       },
       {
         "threshold": 0.6,
@@ -154,39 +154,39 @@
     "selection errors": [
       {
         "threshold": 0.0,
-        "kept_cheap": 73,
+        "kept_cheap": 72,
         "cheap_precision": 1.0,
         "cheap_and_wrong": 0,
-        "escalated": 17,
+        "escalated": 18,
         "final": {
           "correct": 74,
           "abstain": 16
         },
-        "tokens": 88813
+        "tokens": 88997
       },
       {
         "threshold": 0.2,
-        "kept_cheap": 73,
+        "kept_cheap": 72,
         "cheap_precision": 1.0,
         "cheap_and_wrong": 0,
-        "escalated": 17,
+        "escalated": 18,
         "final": {
           "correct": 74,
           "abstain": 16
         },
-        "tokens": 88813
+        "tokens": 88997
       },
       {
         "threshold": 0.4,
-        "kept_cheap": 73,
+        "kept_cheap": 72,
         "cheap_precision": 1.0,
         "cheap_and_wrong": 0,
-        "escalated": 17,
+        "escalated": 18,
         "final": {
           "correct": 74,
           "abstain": 16
         },
-        "tokens": 88813
+        "tokens": 88997
       },
       {
         "threshold": 0.6,
