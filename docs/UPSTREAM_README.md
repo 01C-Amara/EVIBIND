@@ -116,7 +116,7 @@ confirmation, see
 [`docs/STATE_AND_EFFECTS.md`](STATE_AND_EFFECTS.md).
 For the versioned one-call matched-compute suite, compiler/selector metrics, and
 payload-bound replay protocol, see [`docs/EVIBENCH.md`](EVIBENCH.md).
-The canonical ICLR 2027 paper source, formal guarantee, and executable claim
+The canonical paper source, formal guarantee, and executable claim
 ledger live in `paper/` in the research bundle (not shipped in this repo). Start with
 [`docs/REPRODUCIBILITY.md`](REPRODUCIBILITY.md) for the evidence tiers and
 exact commands, and [`docs/PUBLIC_API.md`](PUBLIC_API.md) for the supported
