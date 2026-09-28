@@ -150,7 +150,7 @@ mismatch fail closed before a handler runs.
 
 ## Evidence at a glance
 
-The ICLR 2027 artifact separates direct ActionIR studies from compatibility
+The research artifact separates direct ActionIR studies from compatibility
 replay over ordinary literal tool calls.
 
 | Evidence layer | Frozen result | Supports |
