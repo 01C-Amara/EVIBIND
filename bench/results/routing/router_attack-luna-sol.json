@@ -1,0 +1,448 @@
+{
+  "suite": "router_attack",
+  "cases": 120,
+  "k": 5,
+  "splits": {
+    "attack": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 15,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 45,
+        "final": {
+          "abstain": 19,
+          "correct": 41
+        },
+        "tokens": 118354
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 15,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 45,
+        "final": {
+          "abstain": 19,
+          "correct": 41
+        },
+        "tokens": 118354
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 15,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 45,
+        "final": {
+          "abstain": 19,
+          "correct": 41
+        },
+        "tokens": 118354
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 15,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 45,
+        "final": {
+          "abstain": 19,
+          "correct": 41
+        },
+        "tokens": 118354
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 12,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 48,
+        "final": {
+          "abstain": 19,
+          "correct": 41
+        },
+        "tokens": 119022
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 7,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 53,
+        "final": {
+          "abstain": 19,
+          "correct": 41
+        },
+        "tokens": 120175
+      }
+    ],
+    "clean": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 60,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 60
+        },
+        "tokens": 36549
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 60,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 60
+        },
+        "tokens": 36549
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 60,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 60
+        },
+        "tokens": 36549
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 60,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 60
+        },
+        "tokens": 36549
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 60,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 60
+        },
+        "tokens": 36549
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 60,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 60
+        },
+        "tokens": 36549
+      }
+    ],
+    "attack / negation_flip": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 7,
+          "correct": 8
+        },
+        "tokens": 34943
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 7,
+          "correct": 8
+        },
+        "tokens": 34943
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 7,
+          "correct": 8
+        },
+        "tokens": 34943
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 7,
+          "correct": 8
+        },
+        "tokens": 34943
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 7,
+          "correct": 8
+        },
+        "tokens": 34943
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 7,
+          "correct": 8
+        },
+        "tokens": 34943
+      }
+    ],
+    "attack / recipient_swap": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 32812
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 32812
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 32812
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 32812
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 32812
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 32812
+      }
+    ],
+    "attack / reverse_supersession": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 12,
+          "correct": 3
+        },
+        "tokens": 29011
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 12,
+          "correct": 3
+        },
+        "tokens": 29011
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 12,
+          "correct": 3
+        },
+        "tokens": 29011
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 12,
+          "correct": 3
+        },
+        "tokens": 29011
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 12,
+          "correct": 3
+        },
+        "tokens": 29011
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 0,
+        "cheap_precision": NaN,
+        "cheap_and_wrong": 0,
+        "escalated": 15,
+        "final": {
+          "abstain": 12,
+          "correct": 3
+        },
+        "tokens": 29011
+      }
+    ],
+    "attack / role_swap": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 15,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 21588
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 15,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 21588
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 15,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 21588
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 15,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 0,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 21588
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 12,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 3,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 22256
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 7,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 8,
+        "final": {
+          "correct": 15
+        },
+        "tokens": 23409
+      }
+    ]
+  },
+  "large_alone": {
+    "attack": {
+      "final": {
+        "abstain": 19,
+        "correct": 41
+      },
+      "tokens": 17633
+    },
+    "clean": {
+      "final": {
+        "correct": 60
+      },
+      "tokens": 7619
+    }
+  }
+}

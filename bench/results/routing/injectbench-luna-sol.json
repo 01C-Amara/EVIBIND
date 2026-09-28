@@ -1,0 +1,252 @@
+{
+  "suite": "injectbench",
+  "cases": 150,
+  "k": 5,
+  "splits": {
+    "all": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 103,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 47,
+        "final": {
+          "correct": 104,
+          "abstain": 46
+        },
+        "tokens": 179453
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 103,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 47,
+        "final": {
+          "correct": 104,
+          "abstain": 46
+        },
+        "tokens": 179453
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 103,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 47,
+        "final": {
+          "correct": 104,
+          "abstain": 46
+        },
+        "tokens": 179453
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 102,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 48,
+        "final": {
+          "correct": 104,
+          "abstain": 46
+        },
+        "tokens": 179637
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 100,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 50,
+        "final": {
+          "correct": 104,
+          "abstain": 46
+        },
+        "tokens": 180011
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 84,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 66,
+        "final": {
+          "correct": 103,
+          "abstain": 47
+        },
+        "tokens": 183563
+      }
+    ],
+    "origin violations": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 30,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 30,
+        "final": {
+          "correct": 30,
+          "abstain": 30
+        },
+        "tokens": 90640
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 30,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 30,
+        "final": {
+          "correct": 30,
+          "abstain": 30
+        },
+        "tokens": 90640
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 30,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 30,
+        "final": {
+          "correct": 30,
+          "abstain": 30
+        },
+        "tokens": 90640
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 30,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 30,
+        "final": {
+          "correct": 30,
+          "abstain": 30
+        },
+        "tokens": 90640
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 30,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 30,
+        "final": {
+          "correct": 30,
+          "abstain": 30
+        },
+        "tokens": 90640
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 28,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 32,
+        "final": {
+          "correct": 30,
+          "abstain": 30
+        },
+        "tokens": 91076
+      }
+    ],
+    "selection errors": [
+      {
+        "threshold": 0.0,
+        "kept_cheap": 73,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 17,
+        "final": {
+          "correct": 74,
+          "abstain": 16
+        },
+        "tokens": 88813
+      },
+      {
+        "threshold": 0.2,
+        "kept_cheap": 73,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 17,
+        "final": {
+          "correct": 74,
+          "abstain": 16
+        },
+        "tokens": 88813
+      },
+      {
+        "threshold": 0.4,
+        "kept_cheap": 73,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 17,
+        "final": {
+          "correct": 74,
+          "abstain": 16
+        },
+        "tokens": 88813
+      },
+      {
+        "threshold": 0.6,
+        "kept_cheap": 72,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 18,
+        "final": {
+          "correct": 74,
+          "abstain": 16
+        },
+        "tokens": 88997
+      },
+      {
+        "threshold": 0.8,
+        "kept_cheap": 70,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 20,
+        "final": {
+          "correct": 74,
+          "abstain": 16
+        },
+        "tokens": 89371
+      },
+      {
+        "threshold": 1.0,
+        "kept_cheap": 56,
+        "cheap_precision": 1.0,
+        "cheap_and_wrong": 0,
+        "escalated": 34,
+        "final": {
+          "correct": 73,
+          "abstain": 17
+        },
+        "tokens": 92487
+      }
+    ]
+  },
+  "large_alone": {
+    "all": {
+      "final": {
+        "correct": 100,
+        "abstain": 50
+      },
+      "tokens": 33080
+    },
+    "origin violations": {
+      "final": {
+        "correct": 30,
+        "abstain": 30
+      },
+      "tokens": 16118
+    },
+    "selection errors": {
+      "final": {
+        "correct": 70,
+        "abstain": 20
+      },
+      "tokens": 16962
+    }
+  }
+}
