@@ -147,9 +147,22 @@ def from_responses(resp: dict[str, Any]) -> dict[str, Any]:
             "usage": resp.get("usage", {})}
 
 
+class QuotaExhausted(RuntimeError):
+    """The account has no credit. Not transient, so never retried.
+
+    OpenAI reports an exhausted balance as HTTP 429 - the same status as a rate
+    limit - with ``insufficient_quota`` in the body. Treating it as a rate
+    limit retried every call with backoff: a 750-call run spent twenty minutes
+    retrying requests that could never succeed, printing nothing.
+    """
+
+
+_QUOTA_MARKERS = ("insufficient_quota", "credit_balance_exhausted")
+
+
 def post_json(url: str, body: dict[str, Any], api_key: str, *,
               timeout: int = 300, retries: int = 4) -> dict[str, Any]:
-    """POST with bounded retries. 4xx other than 429 fail immediately."""
+    """POST with bounded retries. 4xx other than a true rate limit fail at once."""
     last: Exception | None = None
     for attempt in range(retries):
         request = urllib.request.Request(
@@ -162,6 +175,8 @@ def post_json(url: str, body: dict[str, Any], api_key: str, *,
         except urllib.error.HTTPError as exc:
             detail = exc.read()[:400].decode("utf-8", "replace")
             last = RuntimeError(f"HTTP {exc.code}: {detail}")
+            if exc.code == 429 and any(m in detail for m in _QUOTA_MARKERS):
+                raise QuotaExhausted(f"HTTP 429: {detail}") from exc
             if exc.code < 500 and exc.code != 429:
                 raise last from exc
         except Exception as exc:  # noqa: BLE001 - transport errors are retryable
