@@ -439,6 +439,66 @@ def _resolution_summary(
     return summary
 
 
+def _literal_content_slots(tool: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Top-level slots the caller lets the model fill with a plain literal.
+
+    Only a slot declared both ``content`` in criticality (or content in role,
+    with no criticality given) and ``opaque_content`` in evidence type
+    qualifies: exactly the rule ``one_call_gateway`` already applies. Anything
+    authority-bearing stays governed.
+    """
+    parameters = tool.get("parameters") or {}
+    properties = parameters.get("properties") if isinstance(parameters, dict) else None
+    if not isinstance(properties, dict):
+        return {}
+    slots: dict[str, dict[str, Any]] = {}
+    for name, prop in properties.items():
+        if not isinstance(prop, dict):
+            continue
+        criticality = str(prop.get("x-tap-criticality", "")).casefold()
+        role = str(prop.get("x-tap-slot-role", "")).casefold()
+        is_content = criticality == "content" or (not criticality and role == "content")
+        if is_content and prop.get("x-tap-evidence-type") == "opaque_content":
+            slots[str(name)] = prop
+    return slots
+
+
+def _without_slots(tool: dict[str, Any], names: set[str]) -> dict[str, Any]:
+    if not names:
+        return tool
+    trimmed = deepcopy(tool)
+    parameters = trimmed.get("parameters") or {}
+    properties = parameters.get("properties") or {}
+    for name in names:
+        properties.pop(name, None)
+    if isinstance(parameters.get("required"), list):
+        parameters["required"] = [n for n in parameters["required"] if n not in names]
+    return trimmed
+
+
+def _literal_type_ok(value: Any, prop: dict[str, Any]) -> bool:
+    declared = prop.get("type")
+    types = declared if isinstance(declared, list) else [declared] if declared else []
+    if not types:
+        return True
+    for kind in types:
+        if kind == "string" and isinstance(value, str):
+            return True
+        if kind == "number" and isinstance(value, (int, float)) and not isinstance(value, bool):
+            return True
+        if kind == "integer" and isinstance(value, int) and not isinstance(value, bool):
+            return True
+        if kind == "boolean" and isinstance(value, bool):
+            return True
+        if kind == "array" and isinstance(value, list):
+            return True
+        if kind == "object" and isinstance(value, dict):
+            return True
+        if kind == "null" and value is None:
+            return True
+    return False
+
+
 def protect_chat_completion(
     request_payload: dict[str, Any],
     upstream_response: dict[str, Any],
@@ -504,9 +564,31 @@ def protect_chat_completion(
     if not isinstance(clarify_interchangeable, bool):
         raise GatewayError("evibind.clarify_interchangeable_slots must be a boolean")
     reference_context["clarify_interchangeable_slots"] = clarify_interchangeable
+    # `allow_noncritical_opaque_literals` used to be read only by
+    # `one_call_gateway`. On this serving path it was accepted and ignored, so
+    # every argument - an amount, a date, a message body - needed support in
+    # the user's own words, and an agent whose amount came from a bill or a
+    # transaction history was withheld whatever its recipient. Content slots
+    # are now set aside before resolution and their literals merged back after
+    # it; the governed slots resolve exactly as before.
+    allow_literals = options.get("allow_noncritical_opaque_literals", False)
+    if not isinstance(allow_literals, bool):
+        raise GatewayError("evibind.allow_noncritical_opaque_literals must be a boolean")
+    literal_slots: dict[str, dict[str, dict[str, Any]]] = (
+        {tool["name"]: _literal_content_slots(tool) for tool in tools}
+        if allow_literals else {}
+    )
+    required_by_tool = {
+        tool["name"]: set((tool.get("parameters") or {}).get("required") or [])
+        for tool in tools
+    }
+    resolver_tools = [
+        _without_slots(tool, set(literal_slots.get(tool["name"], {})))
+        for tool in tools
+    ]
     runtime_case = {
         "messages": _runtime_messages(request_payload.get("messages")),
-        "tools": tools,
+        "tools": resolver_tools,
         "tool_aliases": {},
         "argument_aliases": {},
     }
@@ -601,6 +683,20 @@ def protect_chat_completion(
             )
             continue
 
+        held: dict[str, Any] = {}
+        if allow_literals and isinstance(calls[0], dict):
+            function = calls[0].get("function")
+            if isinstance(function, dict):
+                slots = literal_slots.get(str(function.get("name")), {})
+                try:
+                    arguments = json.loads(function.get("arguments") or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    arguments = None
+                if slots and isinstance(arguments, dict):
+                    for name in slots:
+                        if name in arguments:
+                            held[name] = arguments.pop(name)
+                    function["arguments"] = json.dumps(arguments)
         action, native_diagnostics = normalize_native_message(message)
         materialized, resolution = resolve_deployable_prediction(
             runtime_case,
@@ -616,6 +712,25 @@ def protect_chat_completion(
             and isinstance(materialized.get("tool"), str)
             and isinstance(materialized.get("arguments"), dict)
         )
+        if released and allow_literals:
+            slots = literal_slots.get(materialized["tool"], {})
+            required = required_by_tool.get(materialized["tool"], set())
+            unusable = sorted(
+                name for name in slots
+                if (name in required and name not in held)
+                or (name in held and not _literal_type_ok(held[name], slots[name]))
+            )
+            if unusable:
+                # a literal of the wrong JSON type, or a required one left out,
+                # is the model's incomplete call: ask for it, as before
+                materialized = {"mode": "clarify", "payload": {"missing_slots": unusable}}
+                released = False
+            else:
+                materialized = dict(materialized)
+                materialized["arguments"] = {
+                    **materialized["arguments"],
+                    **{name: value for name, value in held.items() if name in slots},
+                }
         if released:
             proposed_call = calls[0] if isinstance(calls[0], dict) else {}
             call = {
