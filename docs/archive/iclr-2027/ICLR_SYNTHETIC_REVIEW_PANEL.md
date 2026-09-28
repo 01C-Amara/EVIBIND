@@ -1,5 +1,9 @@
 # Synthetic ICLR Review Panel
 
+> **Archived.** Written for ICLR 2027, which was the first target; the paper was
+> not submitted there and is being prepared for TMLR. Not evidence, and not the
+> current state of the claims - see [`README.md`](README.md) in this folder.
+
 Status: AI-simulated internal diagnostic, not human review or human evidence.
 
 The panel follows the four questions in the

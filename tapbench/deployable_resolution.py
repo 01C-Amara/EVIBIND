@@ -408,7 +408,7 @@ def _interchangeable_slot_pairs(
     exchanged, and every value involved is still a span of the user's own turn.
     Confinement is not violated; the direction of the payment is.
 
-    The ICLR mixed-order revision measures this as the one relation where model
+    The paper's mixed-order revision measures this as the one relation where model
     selection is unreliable — two-slot destination composition is exact across
     all four presentation orders in 16% of cases for Qwen3.6-35B and 64% for
     GPT-5.6-Luna, against 100% on the other five relations — so the boundary is

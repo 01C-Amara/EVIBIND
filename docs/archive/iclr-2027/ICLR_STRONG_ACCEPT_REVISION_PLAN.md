@@ -1,5 +1,9 @@
 # ICLR Post-Verdict Revision Plan
 
+> **Archived.** Written for ICLR 2027, which was the first target; the paper was
+> not submitted there and is being prepared for TMLR. Not evidence, and not the
+> current state of the claims - see [`README.md`](README.md) in this folder.
+
 ## Objective
 
 Address every actionable part of the verdict without manufacturing evidence.

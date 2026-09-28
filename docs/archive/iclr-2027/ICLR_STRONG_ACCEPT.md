@@ -1,5 +1,9 @@
 # ICLR Evidence Ledger And Post-Verdict Assessment
 
+> **Archived.** Written for ICLR 2027, which was the first target; the paper was
+> not submitted there and is being prepared for TMLR. Not evidence, and not the
+> current state of the claims - see [`README.md`](README.md) in this folder.
+
 > **Status (2026-07-30):** This document preserves frozen legacy results used
 > as boundary evidence. It is not the canonical manuscript and it is not a
 > claim that the work is submission-ready. The post-verdict source is

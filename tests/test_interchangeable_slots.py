@@ -11,7 +11,7 @@ ACC-3000" therefore releases the reversed transfer without complaint.
 Confinement is intact — no untrusted value escapes — but the payment goes the
 wrong way.
 
-The ICLR mixed-order revision measures this as the one relation where model
+The paper's mixed-order revision measures this as the one relation where model
 selection is unreliable: two-slot destination composition is exact across all
 four presentation orders in 16% of cases for Qwen3.6-35B and 64% for
 GPT-5.6-Luna, against 100% on the other five relations. The boundary is leaning
