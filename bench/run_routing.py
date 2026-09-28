@@ -116,6 +116,13 @@ def _released(case: dict[str, Any], response: dict[str, Any] | None,
         return ABSTAIN, outcome
     key = tuple((name, call["arguments"].get(name))
                 for name in _governed_slots(case))
+    # `_classify_slot` judges the critical slot alone. On a two-slot tool that
+    # would score a transfer from the right account into the wrong one as
+    # correct, and a routing claim about swapped roles has to see both halves.
+    if outcome == "correct":
+        gold = case.get("gold") or {}
+        if any(name in gold and value != gold[name] for name, value in key):
+            outcome = "other"
     return key, outcome
 
 
@@ -125,6 +132,10 @@ def _load_responses(path: Path) -> dict[str, list[dict[str, Any]]]:
         if line.strip():
             row = json.loads(line)
             by_case[row["case_id"]].append(row)
+    # The sampler writes in completion order, not sample order, so without this
+    # `--k 1` would take whichever sample happened to return first.
+    for rows in by_case.values():
+        rows.sort(key=lambda row: row.get("sample", 0))
     return by_case
 
 
@@ -209,11 +220,17 @@ def cmd_sample(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------- analysis
 
 def _route(samples: list[tuple[Any, str]], threshold: float):
-    """Release the modal outcome if enough samples agree, else escalate."""
-    counts = Counter(key for key, _ in samples)
-    key, votes = counts.most_common(1)[0]
+    """Release the modal outcome if enough samples agree, else escalate.
+
+    A tie for the mode is disagreement, not agreement: `most_common` would
+    otherwise break it by sample order, so a 2-2-1 split could release either
+    binding depending on which call returned first.
+    """
+    ranked = Counter(key for key, _ in samples).most_common()
+    key, votes = ranked[0]
     share = votes / len(samples)
-    if key == ABSTAIN or share < threshold:
+    tied = len(ranked) > 1 and ranked[1][1] == votes
+    if key == ABSTAIN or tied or share < threshold:
         return None, share
     outcome = next(outcome for k, outcome in samples if k == key)
     return outcome, share
@@ -231,7 +248,11 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         if not rows:
             continue
         samples = [_released(case, r.get("response"), config) for r in rows]
-        big = large.get(case_id, [{}])[0].get("response")
+        if case_id not in large:
+            # a missing escalation target would otherwise score as a large-model
+            # abstention and quietly flatter or penalise the router
+            raise SystemExit(f"no large-model response for {case_id} in {args.large}")
+        big = large[case_id][0].get("response")
         per_case[case_id] = {
             "case": case,
             "category": case["category"],
@@ -298,7 +319,8 @@ def cmd_analyze(args: argparse.Namespace) -> None:
 
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+        Path(args.out).write_text(json.dumps(report, indent=2) + "\n",
+                                  encoding="utf-8", newline="\n")
         print(f"wrote {args.out}")
 
 

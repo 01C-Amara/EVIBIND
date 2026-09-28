@@ -99,7 +99,9 @@ class MeteredOpenAI:
         self._client = client
         self.meter = meter
         self.chat = _MeteredChat(client.chat, meter)
-        self.responses = _MeteredResponses(client.responses, meter)
+        # older SDKs have no `responses`; a chat-only run must not fail on it
+        if hasattr(client, "responses"):
+            self.responses = _MeteredResponses(client.responses, meter)
 
     def __getattr__(self, item: str) -> Any:
         return getattr(self._client, item)

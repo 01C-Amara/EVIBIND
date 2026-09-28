@@ -43,7 +43,9 @@ VENUE_PROFILES: dict[str, dict[str, Any]] = {
     },
 }
 DEFAULT_VENUE = "tmlr"
-_HEADING = r"\\(?:sub)*section\*\{{{}\}}"
+# numbered or unnumbered: TMLR's template uses an unnumbered heading, but a
+# numbered one satisfies the requirement just as well
+_HEADING = r"\\(?:sub)*section\*?\{{{}\}}"
 _CLAIM = re.compile(r"\\claim\{([^}]+)\}")
 _CITATION = re.compile(r"\\cite[pt]?\{([^}]+)\}")
 _BIB_ENTRY = re.compile(r"@\w+\{([^,\s]+),")
@@ -135,11 +137,17 @@ def _identifying_urls(repository: Path) -> list[str]:
         return []
     record = yaml.safe_load(citation.read_text(encoding="utf-8")) or {}
     urls = {record.get("repository-code"), record.get("url")}
-    return sorted(
-        url.split("://", 1)[-1].rstrip("/")
-        for url in urls
-        if isinstance(url, str) and url
-    )
+    found: set[str] = set()
+    for url in urls:
+        if not isinstance(url, str) or not url:
+            continue
+        bare = url.split("://", 1)[-1].rstrip("/").lower()
+        found.add(bare)
+        # `owner/repo` alone names the authors too, with or without the host
+        path = bare.split("/", 1)[1] if "/" in bare else ""
+        if path.count("/") >= 1:
+            found.add(path)
+    return sorted(found)
 
 
 def venue_failures(
@@ -147,7 +155,7 @@ def venue_failures(
     tex: str,
     paper: Path,
     venue: str,
-    identifying_urls: list[str] = (),
+    identifying_urls: tuple[str, ...] | list[str] = (),
 ) -> list[str]:
     """Venue-specific submission rules; separate so they can be tested alone."""
     if venue not in VENUE_PROFILES:
@@ -166,8 +174,10 @@ def venue_failures(
         if not (paper / name).is_file():
             failures.append(f"missing_official_style:{name}")
     if profile["anonymous_links"]:
+        # GitHub paths are case-insensitive, so the check must be too
+        lowered = tex.lower()
         for url in identifying_urls:
-            if url in tex:
+            if url.lower() in lowered:
                 failures.append(f"deanonymizing_link:{url}")
     return failures
 

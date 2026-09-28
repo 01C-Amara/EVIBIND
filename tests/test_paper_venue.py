@@ -92,3 +92,23 @@ def test_iclr_profile_still_checks_the_legacy_rules(tmp_path: Path) -> None:
 def test_unknown_venue_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(PaperAuditError):
         venue_failures(TMLR_MAIN, TMLR_MAIN, tmp_path, "neurips2027")
+
+
+def test_repository_link_is_caught_in_any_case_and_without_host(tmp_path: Path) -> None:
+    (tmp_path / "CITATION.cff").write_text(
+        'repository-code: "https://github.com/Example-Org/EVIBIND"\n', encoding="utf-8")
+    from tapbench.paper_audit import _identifying_urls
+
+    urls = _identifying_urls(tmp_path)
+    paper = _paper(tmp_path, "tmlr.sty", "tmlr.bst")
+    for leak in ("https://github.com/example-org/evibind", "see Example-Org/EVIBIND"):
+        main = TMLR_MAIN + leak
+        assert any(f.startswith("deanonymizing_link:")
+                   for f in venue_failures(main, main, paper, "tmlr", urls)), leak
+
+
+def test_numbered_broader_impact_heading_is_accepted(tmp_path: Path) -> None:
+    paper = _paper(tmp_path, "tmlr.sty", "tmlr.bst")
+    main = TMLR_MAIN.replace(r"\subsubsection*{Broader Impact Statement}",
+                             r"\section{Broader Impact Statement}")
+    assert venue_failures(main, main, paper, "tmlr") == []
