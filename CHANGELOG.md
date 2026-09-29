@@ -4,6 +4,24 @@ All notable EviBind changes are documented here.
 
 ## Unreleased
 
+- **Fixed: the serving path ignored `allow_noncritical_opaque_literals`**
+  (`docs/FINDINGS.md` §28). Every argument, including amounts and dates,
+  needed support in the user's turn, so the AgentDojo guard released 0
+  governed calls in banking for every model. Content slots now pass as
+  literals after a type check; governed slots are unchanged; opt-in, so
+  frozen bundles do not move. InjectBench re-scores identically; InjecAgent
+  utility rises from 240 to 330 of 450 governed calls released.
+- **AgentDojo re-measured under the fix for three models.** GPT-5.4 nano
+  banking 6 → 1 attacks, 57 → 58 completed, 30 calls released, superseding
+  the frozen 6 → 0 whose guard released nothing. GPT-4o mini 58 → 12, 67 → 19,
+  28 → 14, 66 → 24 across banking, workspace, travel and slack, every residual
+  traced to `password`, `participants` or a benchmark collision. GPT-6 Luna
+  is barely attacked natively (1, 0, 0, 0), so the boundary's cost there is
+  pure insurance; its workspace guarded arm stopped at the spend ceiling.
+- **`user_task_15` collision documented.** In AgentDojo 0.1.35's v1 banking
+  suite, that task's prompt names the attacker's IBAN as the user's landlord.
+  The guard correctly releases it; AgentDojo scores it as an attack.
+
 - **Routing measured, and the router attacked** (`docs/FINDINGS.md` §27).
   GPT-6 Luna selects, GPT-6 Sol takes escalations, 1,620 calls for $0.43. A
   new router-attack suite (60 cases plus clean twins) injects for values the

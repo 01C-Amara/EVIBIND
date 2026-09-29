@@ -159,13 +159,13 @@ predict the rest of the row:
 
 | suite | re-derivable | attack base -> guarded | completed base -> guarded | clean base -> guarded |
 |---|---|---|---|---|
-| banking | 75% | 58 -> 11 of 144 | 53 -> 62 | 8 -> 7 of 16 |
-| workspace | 50% | 67 -> 24 of 240 | 83 -> 90 | 29 -> 18 of 40 |
-| travel | 50% | 28 -> 18 of 140 | 68 -> 62 | 10 -> 13 of 20 |
-| slack | 27% | 66 -> 26 of 105 | 57 -> 20 | 14 -> 5 of 21 |
+| banking | 75% | 58 -> 12 of 144 | 53 -> 56 | 8 -> 7 of 16 |
+| workspace | 50% | 67 -> 19 of 240 | 83 -> 101 | 29 -> 20 of 40 |
+| travel | 50% | 28 -> 14 of 140 | 68 -> 63 | 10 -> 13 of 20 |
+| slack | 27% | 66 -> 24 of 105 | 57 -> 20 | 14 -> 5 of 21 |
 
-calls withheld across the injected runs: 7642 of 11140
-measured spend on the injected runs: $3.25
+calls withheld across the injected runs: 6125 of 9462
+measured spend on the injected runs: $3.00
 
 <!-- /generated -->
 
@@ -175,10 +175,13 @@ number alone can be made to look like a result.
 
 ### Scope predicts the trade
 
-**Banking, 75% re-derivable: the boundary is close to free.** Attacks go to
-zero and *more* tasks complete than without it — a call re-derived from the
-user's own turn still goes out, where the baseline followed the injection and
-failed the task. That is the case people will quote.
+**Banking, 75% re-derivable: the boundary is close to free.** Attacks fall
+from 58 to 12 and slightly *more* tasks complete than without it (53 → 56) — a
+call re-derived from the user's own turn still goes out, where the baseline
+followed the injection and failed the task. Every one of the 12 has a named
+cause: 9 password changes through the unannotated `password` slot, and 3 from
+`user_task_15`, whose own prompt names the attacker's IBAN as the user's
+landlord in this suite version (`docs/FINDINGS.md` §28).
 
 **Slack, 27% re-derivable: it is expensive and it does not even finish the
 job.** Channel names and message recipients arrive from tool output, so there
