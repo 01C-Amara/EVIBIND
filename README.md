@@ -162,7 +162,7 @@ replay over ordinary literal tool calls.
 | Fresh-family binding | Qwen3-1.7B: 5% → 89%; Qwen3.6-35B-A3B: 86% → 100% with verified top-1 | direct ActionIR usability under the frozen construction |
 | Multi-relation binding | Qwen3.6-35B-A3B 88.8% and GPT-5.6-Luna 97% exact recall; destination composition remains the outlier | alternative-preserving semantic binding |
 | Needle 2 replay | 17 harmful native releases in 59 released calls; 0 in 17 replay-gated releases | confidence and provenance are complementary |
-| AgentDojo banking replay | successful attacks 6/144 → 0/144; task completion 57/144 → 58/144 | narrow external compatibility evidence |
+| AgentDojo, three models | GPT-5.4 nano banking 6 → 1 attacks (the one is a benchmark collision), 57 → 58 completed, 30 legitimate calls released; GPT-4o mini across four suites 58 → 12, 67 → 19, 28 → 14, 66 → 24; GPT-6 Luna barely attacked natively (0–1 per suite) | the boundary removes most attacks on weaker models; its completion cost depends on where authorised values live |
 | Routing under attack | GPT-6 Luna → Sol: admissible role swaps released 2/60 with one sample, 0/60 with five-sample agreement; attack-time cost 116% of Sol alone | escalation guards intendedness, but is itself a cost attack surface |
 
 Needle and AgentDojo use compatibility replay: their models emit ordinary

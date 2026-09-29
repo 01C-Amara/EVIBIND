@@ -1077,6 +1077,13 @@ request changed, and none of them hints at which value is the right one.
 
 ## 26. Current-model AgentDojo replication
 
+> **Superseded by §28.** This frozen run was measured with a gateway defect
+> that ignored `allow_noncritical_opaque_literals` on the serving path, so its
+> guard released 0 governed calls and withheld 91: the 0/144 came from
+> withholding every governed effectful call. Re-run under the fix: 6 → 1
+> (the one is the `user_task_15` benchmark collision), 57 → 58 completed,
+> clean 7 → 8, 30 legitimate calls released. The frozen files are unchanged.
+
 The frozen banking replication uses AgentDojo 0.1.35 and GPT-5.4 nano on all
 144 attacked user/injection pairs plus a separate 16-task clean control. The
 native arm completes 57/144 tasks and the guarded arm 58/144. Successful
@@ -1196,3 +1203,106 @@ price of five small-model calls.
 - Not licensed: a claim that self-consistency resists an adaptive attacker
   optimising for majority agreement. The families here were written once and
   not tuned against Luna.
+
+## 28. The serving path ignored the content-literal option
+
+Found reviewing why the AgentDojo guard released **zero** governed calls in
+banking for every model, although `scope.py` finds 75% of banking's critical
+values in the user's own turn.
+
+`allow_noncritical_opaque_literals` lets the model fill *content* slots — an
+amount, a date, a message body — with a plain literal. Only `one_call_gateway`
+read it. `protect_chat_completion` resolves through
+`resolve_deployable_prediction`, which never saw the option, so on the serving
+path it was accepted and silently ignored: every argument needed support in the
+user's turn before any call could be released. Driven directly:
+
+| what the prompt contains | before the fix |
+|---|---|
+| IBAN, amount and date | released |
+| IBAN only | withheld: "answer without using a tool" |
+| IBAN and amount | withheld: "provide the date" |
+
+InjectBench never showed it because its prompts always state the amount.
+AgentDojo and InjecAgent show little else, because their amounts and dates come
+from bills and transaction histories.
+
+The fix (gateway commit `0e56c5a`) sets content slots of type `opaque_content`
+aside before resolution and merges their literals back after it, after a JSON
+type check; governed slots resolve exactly as before. It is opt-in, so frozen
+evidence bundles, which never set the option on this path, are unchanged.
+Tests pin both halves: literals pass with only the recipient in the turn, and
+the attacker's recipient from tool output is still withheld beside admissible
+literals.
+
+### What moved
+
+- **InjectBench: nothing.** All ten saved model runs re-score identically.
+- **InjecAgent utility:** of 450 governed user calls, 330 released and 120
+  withheld, where the committed figure was 240 and 210. All 120 remaining
+  withholds have a governed value genuinely absent from the user's turn.
+- **AgentDojo:** re-measured for three models, guarded arms under the fix,
+  baselines carried forward (a baseline contains no guard):
+
+| model | suite | attacks | completed under attack | clean | released |
+|---|---|---|---|---|---|
+| GPT-5.4 nano | banking | 6 → **1**/144 | 57 → 58 | 7 → 8/16 | 30 |
+| GPT-4o mini | banking | 58 → **12**/144 | 53 → 56 | 8 → 7/16 | 68 |
+| GPT-4o mini | workspace | 67 → **19**/240 | 83 → 101 | 29 → 20/40 | 46 |
+| GPT-4o mini | travel | 28 → **14**/140 | 68 → 63 | 10 → 13/20 | 0 |
+| GPT-4o mini | slack | 66 → **24**/105 | 57 → 20 | 14 → 5/21 | 86 |
+| GPT-6 Luna | banking | 1 → **1**/144 | 123 → 90 | 14 → 9/16 | 25 |
+| GPT-6 Luna | travel | 0 → **0**/140 | 86 → 86 | 14 → 13/20 | 0 |
+| GPT-6 Luna | slack | 0 → **0**/105 | 70 → 25 | 19 → 5/21 | 59 |
+| GPT-6 Luna | workspace | 0/240 baseline | 202 → incomplete | — | — |
+
+Luna's workspace guarded arm stopped at its spend ceiling after 2,552 calls. Its
+baseline is complete and shows no successful attack, so the missing arm could
+only measure utility cost.
+
+### Reading it
+
+**The guard now releases.** Before the fix `released` was exactly 0 in banking
+for all three models; under it, 30, 68 and 25. For GPT-4o mini the aggregate
+numbers moved less than the zero suggests — banking 62 → 56 completed, slack
+unchanged — because withheld calls were retried and many tasks finish through
+ungoverned tools. For GPT-6 Luna the fix recovered banking completion from 72
+to 90.
+
+**Every residual attack has a named cause.** GPT-4o mini's 12 in banking are 9
+password changes through the unannotated `password` slot (§23) and 3 through
+`user_task_15`. Its 19 in workspace are 18 through `participants` (§23) and 1
+other. Nano's single residual is `user_task_15`.
+
+**`user_task_15` is a benchmark collision, not a hole.** In AgentDojo 0.1.35's
+v1 banking suite, that task's own prompt reads *"My new landlord's account is
+US133000000121212121212"* — the attacker's IBAN, written by the user. Later
+suite versions changed it to `CA133012400231215421872`. The guard correctly
+releases a value the user authorised; AgentDojo's checker counts the payment as
+an attack. Before the fix these calls were withheld by the defect, so the
+collision was invisible.
+
+**What the boundary costs depends on where values live; what it buys depends
+on the model.** Against GPT-4o mini it removes most attacks (banking 58 → 12,
+workspace 67 → 19) at modest or no completion cost where the user supplies the
+values. GPT-6 Luna barely falls for this attack template at all — 1/144, 0/140,
+0/105, 0/240 — so on these suites the boundary is insurance paid for in
+completion: none in travel, moderate in banking, large in slack, where the
+authorised values arrive in tool output.
+
+### The frozen replication in §26
+
+The frozen GPT-5.4-nano banking replication (6/144 → 0/144, 57 → 58) was
+measured with the defect: its guard released 0 governed calls and withheld 91.
+The attack count is literally true, but it came from withholding every governed
+effectful call, not from the re-derive-and-release path the method describes.
+The frozen files are unchanged. The re-run under the fix is
+`agentdojo-banking-gpt-5.4-nano-literal-fix-rerun.json`: 6 → 1 (the collision),
+57 → 58, clean 7 → 8, 30 calls released. That is a stronger result than the
+frozen one, and it is the one to cite.
+
+### Open
+
+Travel still releases 0 governed calls for both GPT-4o mini and GPT-6 Luna. Travel's critical
+values are hotel, restaurant and car-rental names that usually arrive in tool
+output, which would explain it, but that has not been checked case by case.
