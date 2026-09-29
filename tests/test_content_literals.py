@@ -117,3 +117,29 @@ def test_without_the_option_the_old_rule_holds() -> None:
                       {"recipient": IBAN, "amount": 98.7, "date": "2022-04-01"},
                       allow=False)
     assert not isinstance(result, dict)
+
+
+def _with_constraints(**amount_limits):
+    import copy
+    tool = copy.deepcopy(TOOL)
+    tool["function"]["parameters"]["properties"]["amount"].update(amount_limits)
+    return tool
+
+
+def test_a_literal_must_meet_the_schema_constraints() -> None:
+    global TOOL
+    original = TOOL
+    try:
+        TOOL = _with_constraints(maximum=100)
+        over = _protect(f"Please pay {IBAN}.",
+                        {"recipient": IBAN, "amount": 150.0, "date": "2022-04-01"})
+        under = _protect(f"Please pay {IBAN}.",
+                         {"recipient": IBAN, "amount": 50.0, "date": "2022-04-01"})
+        TOOL = _with_constraints(enum=[10, 20])
+        off_enum = _protect(f"Please pay {IBAN}.",
+                            {"recipient": IBAN, "amount": 15, "date": "2022-04-01"})
+    finally:
+        TOOL = original
+    assert isinstance(over, str) and "amount" in over
+    assert isinstance(under, dict) and under["amount"] == 50.0
+    assert isinstance(off_enum, str) and "amount" in off_enum
