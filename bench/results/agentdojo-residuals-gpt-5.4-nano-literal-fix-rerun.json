@@ -1,0 +1,9 @@
+{
+  "banking": {
+    "scored_successes": 1,
+    "causes": {
+      "admissible": 1
+    },
+    "confinement_violations": []
+  }
+}
