@@ -9,7 +9,7 @@ from typing import Any, Mapping
 import yaml
 
 
-PAPER_AUDIT_VERSION = "evibind.paper_audit.v6"
+PAPER_AUDIT_VERSION = "evibind.paper_audit.v7"
 
 # Venue rules the canonical source is checked against. TMLR is the target;
 # ICLR 2027 was the first target, was never submitted to, and is kept only so
@@ -1037,6 +1037,146 @@ def audit_paper(
         if not path.is_file() or _digest(path) != expected:
             failures.append(f"reproducibility_digest_drift:{raw}")
     checks.append("reproducibility_manifest_digests_match")
+
+    # ------------------------------------------------ claims added for TMLR
+    # Each is recomputed from the raw result files rather than read from a
+    # summary, so the manuscript cannot drift from the evidence it cites.
+    import sys as _sys
+
+    for extra in (repository / "bench", repository / "bench" / "agentdojo"):
+        if str(extra) not in _sys.path:
+            _sys.path.insert(0, str(extra))
+
+    if "routing_under_attack" in claims:
+        from run_routing import router_attack_summary
+
+        routing_observed = router_attack_summary(
+            repository / "bench/results/routing/gpt-6-luna.router_attack.samples.jsonl",
+            repository / "bench/results/routing/gpt-6-sol.router_attack.samples.jsonl",
+        )
+        for key, expected in (claims["routing_under_attack"].get("expected") or {}).items():
+            if routing_observed.get(key) != expected:
+                failures.append(f"routing_under_attack_drift:{key}:{expected}!={routing_observed.get(key)}")
+        checks.append("routing_under_attack_is_recomputed")
+
+    def _adojo_arms(name: str) -> dict[str, Any]:
+        return _read_json(repository / "bench/results" / name)["arms"]
+
+    if "agentdojo_banking" in claims:
+        from paired_stats import mcnemar, outcomes
+
+        nano = claims["agentdojo_banking"].get("expected") or {}
+        attacked = _adojo_arms("agentdojo-banking-gpt-5.4-nano-literal-fix-rerun.json")
+        clean = _adojo_arms("agentdojo-banking-clean-gpt-5.4-nano-literal-fix-rerun.json")
+        base = outcomes(repository / "bench/results/agentdojo-banking-gpt-5.4-nano-confirmatory-v1-traces.zip",
+                        "banking", "gpt-5.4-nano/banking", True)
+        guard = outcomes(repository / "bench/results/agentdojo-banking-gpt-5.4-nano-literal-fix-rerun-traces.zip",
+                         "banking", "nano-evibind/banking", True)
+        paired = sorted(set(base) & set(guard), key=str)
+        improved = sum(1 for k in paired if base[k][1] and not guard[k][1])
+        regressed = sum(1 for k in paired if not base[k][1] and guard[k][1])
+        observed = {
+            "injected_cases_per_arm": len(paired),
+            "native_attack_success": attacked["baseline"]["attack_succeeded"],
+            "evibind_attack_success": attacked["evibind"]["attack_succeeded"],
+            "attack_improvements": improved,
+            "attack_regressions": regressed,
+            "attack_mcnemar_exact_p": mcnemar(improved, regressed),
+            "native_attacked_utility": attacked["baseline"]["utility_passed"],
+            "evibind_attacked_utility": attacked["evibind"]["utility_passed"],
+            "native_clean_utility": clean["baseline"]["utility_passed"],
+            "evibind_clean_utility": clean["evibind"]["utility_passed"],
+            "governed_calls_released": attacked["evibind"]["guard_stats"]["released"],
+            "residual_success_case": "/".join(next(k for k in paired if guard[k][1])),
+        }
+        for key, value in observed.items():
+            if key in nano and not _approx(nano[key], value):
+                failures.append(f"agentdojo_banking_drift:{key}:{nano[key]}!={value}")
+        checks.append("agentdojo_banking_rerun_is_recomputed_and_paired")
+
+    if "agentdojo_multimodel" in claims:
+        multi = claims["agentdojo_multimodel"].get("expected") or {}
+        for field, tag, arm_pair in (
+            ("gpt_4o_mini_attacks_native_to_guarded", "gpt-4o-mini-2024-07-18", "attack_succeeded"),
+            ("gpt_4o_mini_completion_native_to_guarded", "gpt-4o-mini-2024-07-18", "utility_passed"),
+            ("gpt_6_luna_completion_native_to_guarded", "gpt-6-luna", "utility_passed"),
+        ):
+            for suite, expected in (multi.get(field) or {}).items():
+                arms = _adojo_arms(f"agentdojo-{suite}-{tag}.json")
+                observed_pair = [arms["baseline"][arm_pair], arms["evibind"][arm_pair]]
+                if observed_pair != list(expected):
+                    failures.append(f"agentdojo_multimodel_drift:{field}:{suite}:{expected}!={observed_pair}")
+        for suite, expected in (multi.get("gpt_6_luna_native_attacks") or {}).items():
+            got = _adojo_arms(f"agentdojo-{suite}-gpt-6-luna.json")["baseline"]["attack_succeeded"]
+            if got != expected:
+                failures.append(f"agentdojo_multimodel_drift:luna_native:{suite}:{expected}!={got}")
+        causes = multi.get("gpt_4o_mini_residual_causes") or {}
+        bank = _adojo_arms("agentdojo-banking-gpt-4o-mini-2024-07-18.json")["evibind"]["by_injection_task"]
+        work = _adojo_arms("agentdojo-workspace-gpt-4o-mini-2024-07-18.json")["evibind"]["by_injection_task"]
+        cause_observed = {
+            "password": bank["injection_task_7"]["succeeded"],
+            "participants": work["injection_task_2"]["succeeded"],
+            "user_task_15_collision": sum(bank[t]["succeeded"] for t in
+                                          ("injection_task_1", "injection_task_3", "injection_task_4")),
+        }
+        for key, value in cause_observed.items():
+            if key in causes and causes[key] != value:
+                failures.append(f"agentdojo_multimodel_drift:cause:{key}:{causes[key]}!={value}")
+        checks.append("agentdojo_multimodel_is_recomputed")
+
+    if "agentdojo_residuals" in claims:
+        # Classifying residuals needs AgentDojo installed and the per-case
+        # traces; bench/agentdojo/residuals.py does that and writes these files.
+        # The audit checks the ledger against them and insists on zero
+        # confinement violations.
+        residual_expected = claims["agentdojo_residuals"].get("expected") or {}
+        causes_total: dict[str, int] = {}
+        violations: list[str] = []
+        total = 0
+        for tag in ("gpt-4o-mini-2024-07-18", "gpt-6-luna", "gpt-5.4-nano-literal-fix-rerun"):
+            report = _read_json(repository / f"bench/results/agentdojo-residuals-{tag}.json")
+            for suite_report in report.values():
+                total += suite_report["scored_successes"]
+                violations += suite_report["confinement_violations"]
+                for cause, n in suite_report["causes"].items():
+                    causes_total[cause] = causes_total.get(cause, 0) + n
+        residual_observed = {"residual_successes": total,
+                             "confinement_violations": len(violations),
+                             "causes": causes_total}
+        for key, expected in residual_expected.items():
+            if residual_observed.get(key) != expected:
+                failures.append(f"agentdojo_residuals_drift:{key}:{expected}!={residual_observed.get(key)}")
+        if violations:
+            failures.append("agentdojo_confinement_violation:" + ",".join(violations))
+        checks.append("agentdojo_residuals_are_classified")
+
+    if "needle_confidence" in claims:
+        needle_expected = claims["needle_confidence"].get("expected") or {}
+        needle_arms = _read_json(repository / "bench/results/needle2-confidence-v1-analysis.json")["arms"]
+        needle_observed = {}
+        for arm in ("native", "confidence", "evibind", "combined"):
+            needle_observed[f"{arm}_releases"] = needle_arms[arm]["coverage"]["successes"]
+            needle_observed[f"{arm}_harmful"] = needle_arms[arm]["harmful_per_case"]["successes"]
+        for arm in ("evibind", "combined"):
+            needle_observed[f"{arm}_accepted_precision"] = (
+                needle_arms[arm]["accepted_exact_binding_precision"]["point"])
+        for key, value in needle_observed.items():
+            if key in needle_expected and not _approx(needle_expected[key], value):
+                failures.append(f"needle_confidence_drift:{key}:{needle_expected[key]}!={value}")
+        checks.append("needle_confidence_is_recomputed")
+
+    if "semantic_binding_robustness" in claims:
+        # the headline recall figures the abstract and Table 6 quote
+        semantic_recall = {"gpt_5_6_luna": 0.97, "qwen36_35b_a3b": 0.8883333333333333}
+        for model_key, expected in semantic_recall.items():
+            overall = _read_json(
+                repository / f"work/semantic_binding_robustness_v3/results/{model_key}/semantic_binding_analysis.json"
+            )["overall"]
+            if not _approx(overall["exact_binding_recall"], expected, 1e-6):
+                failures.append(f"semantic_binding_recall_drift:{model_key}:{overall['exact_binding_recall']}")
+            if overall["rows"] != 600:
+                failures.append(f"semantic_binding_rows:{model_key}:{overall['rows']}")
+        checks.append("semantic_binding_headline_is_recomputed")
 
     forbidden = (
         "guarantees perfect empirical precision",
