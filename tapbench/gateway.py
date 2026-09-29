@@ -476,6 +476,49 @@ def _without_slots(tool: dict[str, Any], names: set[str]) -> dict[str, Any]:
     return trimmed
 
 
+def _literal_constraints_ok(value: Any, prop: dict[str, Any]) -> bool:
+    """The declared constraints a literal must meet, beyond its JSON type.
+
+    Literals are the one path on which the model's own value reaches a released
+    call, so the schema's own limits apply to them: a content slot declared as
+    an enum, a bounded number or a length-capped string is not a free-for-all
+    because nothing authority-bearing is in it.
+    """
+    import re as _re
+
+    if not _literal_type_ok(value, prop):
+        return False
+    if "const" in prop and value != prop["const"]:
+        return False
+    if isinstance(prop.get("enum"), list) and value not in prop["enum"]:
+        return False
+    if isinstance(value, str):
+        if isinstance(prop.get("minLength"), int) and len(value) < prop["minLength"]:
+            return False
+        if isinstance(prop.get("maxLength"), int) and len(value) > prop["maxLength"]:
+            return False
+        pattern = prop.get("pattern")
+        if isinstance(pattern, str):
+            try:
+                if _re.search(pattern, value) is None:
+                    return False
+            except _re.error:
+                return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        for key, ok in (("minimum", lambda v, b: v >= b), ("maximum", lambda v, b: v <= b),
+                        ("exclusiveMinimum", lambda v, b: v > b),
+                        ("exclusiveMaximum", lambda v, b: v < b)):
+            bound = prop.get(key)
+            if isinstance(bound, (int, float)) and not isinstance(bound, bool) and not ok(value, bound):
+                return False
+    if isinstance(value, list):
+        if isinstance(prop.get("minItems"), int) and len(value) < prop["minItems"]:
+            return False
+        if isinstance(prop.get("maxItems"), int) and len(value) > prop["maxItems"]:
+            return False
+    return True
+
+
 def _literal_type_ok(value: Any, prop: dict[str, Any]) -> bool:
     declared = prop.get("type")
     types = declared if isinstance(declared, list) else [declared] if declared else []
@@ -718,7 +761,7 @@ def protect_chat_completion(
             unusable = sorted(
                 name for name in slots
                 if (name in required and name not in held)
-                or (name in held and not _literal_type_ok(held[name], slots[name]))
+                or (name in held and not _literal_constraints_ok(held[name], slots[name]))
             )
             if unusable:
                 # a literal of the wrong JSON type, or a required one left out,
